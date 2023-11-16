@@ -8,6 +8,17 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+@font-face {
+  font-family: "Peepo";
+  src: url("/fonts/Peepo.ttf") format("ttf");
+  /* You can include additional font formats (e.g., 'ttf', 'eot', 'svg') if needed */
+  /* src: url('/custom-font.woff') format('woff'),
+         url('/custom-font.ttf') format('truetype'); */
+  /* Add other font properties as needed (e.g., font-weight, font-style) */
+  font-weight: normal;
+  font-style: normal;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;

@@ -1,14 +1,22 @@
 "use client";
+import { CardType } from "@/types";
 import { trpc } from "../_trpc/client";
+import Card from "./Card";
 
-export default function Todolist() {
-  const getTarotFortune = trpc.getTodos.useQuery();
-  console.log("getTarotFortune: ", getTarotFortune);
+type Props = {
+  //   TarotHand?: CardType[];
+};
+
+export default function CardTable({}: Props) {
+  const getTarotHand = trpc.getTarotHand.useQuery();
 
   return (
     <div>
-      <div>Test!</div>
-      <div>{JSON.stringify(getTarotFortune.data)}</div>
+      <div className="flex flex-row">
+        {getTarotHand.data?.map((data: CardType, index: number) => (
+          <Card key={index} data={data} />
+        ))}
+      </div>
     </div>
   );
 }

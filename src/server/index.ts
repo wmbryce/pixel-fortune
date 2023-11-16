@@ -1,13 +1,23 @@
 import { publicProcedure, router } from "./trpc";
+import { createTarotDeck } from "./handlers/deck";
+import { TarotHandType } from "@/types";
+import { generateFortune, generateMockFortune } from "./handlers/fortune";
 
 export const appRouter = router({
-  getTarotFortune: publicProcedure.query(async () => {
-    console.log("testing this fortune");
-    return [10, 20, 30];
+  getTarotHand: publicProcedure.query(async () => {
+    const newTarotDeck: TarotHandType = createTarotDeck();
+    const newHand: TarotHandType = newTarotDeck.slice(0, 5);
+    return newHand;
   }),
-  getTodos: publicProcedure.query(async () => {
-    console.log("testing this");
-    return [20, 30, 40];
+  getFortune: publicProcedure.mutation(async (opts) => {
+    try {
+      const response = await generateMockFortune();
+      //   const response = await generateFortune();
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }),
 });
 
