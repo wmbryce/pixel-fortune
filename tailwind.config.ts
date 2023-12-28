@@ -14,9 +14,11 @@ const config: Config = {
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
       fontFamily: {
-        sans: ["Peepo"],
+        serif: ["PixelCowboy"],
+        sans: ["Pixelify Sans"],
       },
       colors: {
+        black_01: "#0B0012",
         blue_01: "#0A3465",
         brown_01: "#843706",
         brown_02: "#FBC070",
@@ -24,12 +26,17 @@ const config: Config = {
       },
       keyframes: {
         fadeInOut: {
-          "0%, 100%": { opacity: "0" },
-          "30%, 70%": { opacity: "1" },
+          "100%": { opacity: "0" },
+          "0%": { opacity: "1" },
+        },
+        typing: {
+          "0%": { width: "0%" },
+          "100%": { width: "100%" },
         },
       },
       animation: {
         fade: "fadeInOut 3s linear",
+        type: "typing 3.5s steps(40, end)",
       },
     },
   },

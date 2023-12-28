@@ -8,11 +8,13 @@ function DialogBox() {
   console.log("getFortune: ", getFortune);
 
   return (
-    <div className="h-[400px] p-8 w-full border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md">
+    <div className="h-[360px] p-8 w-[80%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md">
       {getFortune?.isLoading ? (
         <p>Loading... </p>
       ) : (
-        getFortune?.data && <p>{getFortune?.data}</p>
+        getFortune?.data && (
+          <p className="animation-type font-sans">{getFortune?.data}</p>
+        )
       )}
       {(getFortune?.isSuccess || getFortune?.isError || getFortune?.isIdle) && (
         <DialogButton

@@ -17,7 +17,7 @@ function Welcome({ setShowWelcome }: Props) {
       height={400}
       width={400}
       className="flex object-contain animate-fade h-[700px] w-[1000px]"
-      src={"/assets/introImage2.png"}
+      src={"/../../../assets/Background/MainImage.png"}
       alt={"Welcome image"}
     />
   );

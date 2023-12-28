@@ -8,7 +8,9 @@ type Props = {
 };
 
 export default function CardTable({}: Props) {
-  const getTarotHand = trpc.getTarotHand.useQuery();
+  const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
+    enabled: false,
+  });
 
   return (
     <div>
