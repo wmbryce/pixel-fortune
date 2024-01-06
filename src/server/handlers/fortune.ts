@@ -6,7 +6,7 @@ import OpenAI from "openai";
 import { mockResponse } from "../data/mock-response";
 
 const openai = new OpenAI({
-  apiKey: "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", // defaults to process.env["OPENAI_API_KEY"]
+  apiKey: process.env.NEXT_PUBLIC_OPEN_AI_KEY, // defaults to process.env["OPENAI_API_KEY"]
 });
 
 const generateFortunePrompt = (tarotHand: CardType[]) => {
