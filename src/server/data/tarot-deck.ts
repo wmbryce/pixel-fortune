@@ -14,37 +14,37 @@ export const TarotDeck = [
   {
     name: "The High Priestess",
     id: 2,
-    image: "Tarot_02.png",
+    image: "Tarot_02_Prestess.png",
     description: "",
   },
   {
     name: "The Empress",
     id: 3,
-    image: "Tarot_03.png",
+    image: "Tarot_03_Empress.png",
     description: "",
   },
   {
     name: "The Emperor",
     id: 4,
-    image: "Tarot_04.png",
+    image: "Tarot_04_Emperor.png",
     description: "",
   },
   {
     name: "The Hierophant",
     id: 5,
-    image: "Tarot_05.png",
+    image: "Tarot_05_Hierophant.png",
     description: "",
   },
   {
     name: "The Lovers",
     id: 6,
-    image: "Tarot_06.png",
+    image: "Tarot_06_Lovers.png",
     description: "",
   },
   {
     name: "The Chariot",
     id: 7,
-    image: "Tarot_07.png",
+    image: "Tarot_07_Chariot.png",
     description: "",
   },
   {
@@ -56,37 +56,37 @@ export const TarotDeck = [
   {
     name: "The Hermit",
     id: 9,
-    image: "Tarot_09.png",
+    image: "Tarot_09_Hermit.png",
     description: "",
   },
   {
     name: "Wheel of Fortune",
     id: 10,
-    image: "Tarot_10.png",
+    image: "Tarot_10_Wheel.png",
     description: "",
   },
   {
     name: "Justice",
     id: 11,
-    image: "Tarot_11.png",
+    image: "Tarot_11_Justice.png",
     description: "",
   },
   {
     name: "The Hanged Man",
     id: 12,
-    image: "Tarot_12.png",
+    image: "Tarot_12_Hanged_Man.png",
     description: "",
   },
   {
     name: "Death",
     id: 13,
-    image: "Tarot_13.png",
+    image: "Tarot_13_Death.png",
     description: "",
   },
   {
     name: "Temperance",
     id: 14,
-    image: "Tarot_14.png",
+    image: "Tarot_14_Temperance.png",
     description: "",
   },
   {
@@ -98,13 +98,13 @@ export const TarotDeck = [
   {
     name: "The Tower",
     id: 16,
-    image: "Tarot_16.png",
+    image: "Tarot_16_Tower.png",
     description: "",
   },
   {
     name: "The Star",
     id: 17,
-    image: "Tarot_17.png",
+    image: "Tarot_17_Star.png",
     description: "",
   },
   {
@@ -116,20 +116,20 @@ export const TarotDeck = [
   {
     name: "The Sun",
     id: 19,
-    image: "Tarot_19.png",
+    image: "Tarot_19_Sun.png",
     description: "",
   },
   {
     name: "Judgment",
     id: 20,
-    image: "Tarot_20.png",
+    image: "Tarot_20_Judgement.png",
     description: "",
   },
   {
     name: "The World",
     id: 21,
     image: "",
-    description: "Tarot_21.png",
+    description: "Tarot_21_World.png",
   },
   {
     name: "Ace of Wands",

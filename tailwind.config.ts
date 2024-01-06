@@ -33,10 +33,16 @@ const config: Config = {
           "0%": { width: "0%" },
           "100%": { width: "100%" },
         },
+        blinking: {
+          "0%,20%,80%,100%": { opacity: "0" },
+          "25%,50%,75%": { opacity: "1" },
+        },
       },
       animation: {
         fade: "fadeInOut 3s linear",
+        fadeIn: "fadeInOut 3s linear reverse",
         type: "typing 3.5s steps(40, end)",
+        blink: "blinking 2s infinite 2s",
       },
     },
   },

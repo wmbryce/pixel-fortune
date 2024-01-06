@@ -4,21 +4,17 @@ import { trpc } from "../_trpc/client";
 import Card from "./Card";
 
 type Props = {
-  //   TarotHand?: CardType[];
+  tarotHand?: CardType[];
 };
 
-export default function CardTable({}: Props) {
-  const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
-    enabled: false,
-  });
-
+export default function CardTable({ tarotHand }: Props) {
   return (
-    <div>
+    tarotHand && (
       <div className="flex flex-row">
-        {getTarotHand.data?.map((data: CardType, index: number) => (
+        {tarotHand?.map((data: CardType, index: number) => (
           <Card key={index} data={data} />
         ))}
       </div>
-    </div>
+    )
   );
 }

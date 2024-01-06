@@ -1,24 +1,16 @@
 import React, { useEffect } from "react";
 import Image from "next/image";
 
-type Props = {
-  setShowWelcome: any;
-};
+type Props = {};
 
-function Welcome({ setShowWelcome }: Props) {
-  useEffect(() => {
-    setTimeout(() => {
-      setShowWelcome(false);
-    }, 3000);
-  });
-
+function Welcome({}: Props) {
   return (
     <Image
-      height={400}
-      width={400}
-      className="flex object-contain animate-fade h-[700px] w-[1000px]"
+      height={600}
+      width={600}
+      className="flex object-contain animate-fadeIn h-[900px] w-[1200px]"
       src={"/../../../assets/Background/MainImage.png"}
-      alt={"Welcome image"}
+      alt={"Pixel Fortune"}
     />
   );
 }
