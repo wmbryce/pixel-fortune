@@ -8,15 +8,24 @@ import { trpc } from "../_trpc/client";
 
 export default function Home() {
   const [fetchHand, setFetchHand] = useState<boolean>(false);
+  const [showDialogBox, setShowDialogBox] = useState<boolean>(false);
 
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
   });
 
+  useEffect(() => {
+    setTimeout(() => {
+      setShowDialogBox(true);
+    }, 2000);
+  });
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start bg-black_01">
+    <main className="flex flex-1 flex-col justify-between">
       <CardTable tarotHand={getTarotHand?.data} />
-      <DialogBox fetchHand={fetchHand} setFetchHand={setFetchHand} />
+      {showDialogBox && (
+        <DialogBox fetchHand={fetchHand} setFetchHand={setFetchHand} />
+      )}
     </main>
   );
 }

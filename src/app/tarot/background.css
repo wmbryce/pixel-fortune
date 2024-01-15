@@ -1,0 +1,8 @@
+.custom-background {
+  background-image: url("/assets/background/tarot_background_3.png");
+  background-size: cover; /* This will make sure your image covers the whole page */
+  background-repeat: no-repeat; /* This will prevent the image from repeating */
+  background-attachment: fixed;
+  background-position: center;
+  /* background-color: #ffffff; */
+}

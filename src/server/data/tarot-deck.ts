@@ -50,7 +50,7 @@ export const TarotDeck = [
   {
     name: "Strength",
     id: 8,
-    image: "Tarot_08.png",
+    image: "Tarot_08_Strength.png",
     description: "",
   },
   {
@@ -92,7 +92,7 @@ export const TarotDeck = [
   {
     name: "The Devil",
     id: 15,
-    image: "Tarot_15.png",
+    image: "Tarot_15_Devil.png",
     description: "",
   },
   {
@@ -110,7 +110,7 @@ export const TarotDeck = [
   {
     name: "The Moon",
     id: 18,
-    image: "Tarot_18.png",
+    image: "Tarot_18_Moon.png",
     description: "",
   },
   {

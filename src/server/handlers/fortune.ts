@@ -1,6 +1,4 @@
 import { CardType } from "@/types";
-import { TarotDeck } from "../data/tarot-deck";
-import axios from "axios";
 import { createTarotDeck } from "./deck";
 import OpenAI from "openai";
 import { mockResponse } from "../data/mock-response";
