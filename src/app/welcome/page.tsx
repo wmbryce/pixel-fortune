@@ -10,7 +10,6 @@ export default function WelcomePage() {
   const router = useRouter();
 
   const handleKeyPress = () => {
-    console.log("handling key press");
     router.push("/tarot");
   };
 
@@ -22,9 +21,9 @@ export default function WelcomePage() {
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-24 bg-black_01">
+    <main className="flex h-[100vh] flex-col items-center justify-center p-24 bg-black_01">
       <Welcome />
-      <p className="font-sans animate-blink mt-[-30px] opacity-0">
+      <p className="font-sans animate-blink mt-[-40px] mb-[50px] opacity-0">
         Press any key to continue
       </p>
     </main>
