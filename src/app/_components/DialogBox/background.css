@@ -1,0 +1,6 @@
+.dialog-background {
+  /* background-image: url("/assets/background/dialog_background_02.png"); */
+  background-repeat: repeat; /* This will prevent the image from repeating */
+  /* opacity: 0.9; */
+  /* background-color: #ffffff; */
+}
