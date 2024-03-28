@@ -10,6 +10,7 @@ export default function WelcomePage() {
   const router = useRouter();
 
   const handleKeyPress = () => {
+    console.log("OG key press");
     router.push("/tarot");
   };
 

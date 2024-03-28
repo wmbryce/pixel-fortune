@@ -1,4 +1,10 @@
-import React, { useState, Dispatch, SetStateAction } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import { trpc } from "../../_trpc/client";
 import { DialogButton } from "../DialogButton";
 import "./background.css";
@@ -15,11 +21,18 @@ type Props = {
   fetchHand: boolean;
   setFetchHand: Dispatch<SetStateAction<boolean>>;
   resetData: any;
+  stateIndex: number;
+  setStateIndex: any;
 };
 
-function DialogBox({ fetchHand, setFetchHand, resetData }: Props) {
-  let [stateIndex, setStateIndex] = useState<number>(0);
-
+function DialogBox({
+  fetchHand,
+  setFetchHand,
+  resetData,
+  stateIndex,
+  setStateIndex,
+}: Props) {
+  //   let [stateIndex, setStateIndex] = useState<number>(0);
   const [currentState, setCurrentState] = useState<any>({});
 
   const {
@@ -28,7 +41,6 @@ function DialogBox({ fetchHand, setFetchHand, resetData }: Props) {
     data,
   } = trpc.getFortune.useMutation({
     onSettled: (data) => {
-      console.log("result from getFortune: ", data);
       let textArray: string[] = [];
       if (typeof data === "string") {
         textArray = data?.split(/\n\s*\n+/);
@@ -38,11 +50,6 @@ function DialogBox({ fetchHand, setFetchHand, resetData }: Props) {
       setStateIndex(2);
     },
   });
-
-  const incrementStateIndex = () => {
-    console.log("increment state index!", stateIndex);
-    stateIndex++;
-  };
 
   const generateTableStates = (textArray: string[]): tableStateType[] => {
     const head = [
@@ -91,6 +98,18 @@ function DialogBox({ fetchHand, setFetchHand, resetData }: Props) {
   const [dialogStates, setDialogStates] = useState<tableStateType[]>(
     generateTableStates([])
   );
+
+  const nextKeyPress = useCallback(() => {
+    console.log("next key press!!!!", stateIndex);
+    dialogStates?.[stateIndex]?.action();
+  }, [stateIndex, dialogStates]);
+
+  useEffect(() => {
+    window.addEventListener("keydown", nextKeyPress);
+    return () => {
+      window.removeEventListener("keydown", nextKeyPress);
+    };
+  }, []);
 
   return (
     <div className="relative animate-fadeIn flex flex-col flex-1 w-[100%] items-center opacity-[90%]">

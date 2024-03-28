@@ -10,6 +10,7 @@ import { CardType } from "@/types";
 export default function Home() {
   const [fetchHand, setFetchHand] = useState<boolean>(false);
   const [showDialogBox, setShowDialogBox] = useState<boolean>(false);
+  const [stateIndex, setStateIndex] = useState<number>(0);
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
 
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
@@ -29,7 +30,6 @@ export default function Home() {
       setShowDialogBox(true);
     }, 2000);
   });
-
   // console.log("fetch hand: ", fetchHand, getTarotHand?.data);
 
   return (
@@ -40,6 +40,8 @@ export default function Home() {
           <DialogBox
             fetchHand={fetchHand}
             setFetchHand={setFetchHand}
+            stateIndex={stateIndex}
+            setStateIndex={setStateIndex}
             resetData={resetData}
           />
         )}
