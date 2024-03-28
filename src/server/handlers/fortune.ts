@@ -43,7 +43,6 @@ export const generateFortune = async (tarotHand?: CardType[]) => {
 
     const prompt = generateFortunePrompt(tarotHand);
 
-    console.log("starting api call to chat gpt:");
     const response = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "gpt-3.5-turbo",

@@ -1,30 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { DialogButton } from "./DialogButton";
-import { start } from "repl";
 
 type Props = {
   text: string;
   delay: number;
-  nextAction: 
+  skip: boolean;
 };
 
-function TypingText({ text, delay, nextAction }: Props) {
+function TypingText({ text, delay, skip }: Props) {
   const [startIndex, setStartIndex] = useState<number>(0);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [delayComplete, setDelayComplete] = useState<boolean>(false);
-  const [showContinueButton, setShowContinueButton] = useState<boolean>(false);
 
-  const typingInterval = 30;
+  const typingInterval = 15;
   const maxCharacters = 1000;
 
-  console.log("delayComplete ", {
-    delayComplete,
-    textLength: text?.length,
-    currentIndex,
-    maxCharacters,
-    currentIndex,
-    startIndex,
-  });
+  useEffect(() => {
+    setCurrentIndex(0);
+    setStartIndex(0);
+  }, [text]);
 
   useEffect(() => {
     if (
@@ -32,11 +26,9 @@ function TypingText({ text, delay, nextAction }: Props) {
       text?.length > currentIndex &&
       maxCharacters > currentIndex - startIndex
     ) {
-      setTimeout(() => { 
+      setTimeout(() => {
         setCurrentIndex(currentIndex + 1);
       }, typingInterval);
-    } else if (maxCharacters === currentIndex - startIndex) {
-        setShowContinueButton(true)
     } else {
       setTimeout(() => {
         setDelayComplete(true);
@@ -49,12 +41,7 @@ function TypingText({ text, delay, nextAction }: Props) {
   };
 
   return (
-    <>
-      <p className={"font-sans"}>{text.substring(startIndex, currentIndex)}</p>
-      {showContinueButton && (
-        <DialogButton onClick={ClearAndContinue}>Continue</DialogButton>
-      )}
-    </>
+    <p className={"font-sans"}>{text.substring(startIndex, currentIndex)}</p>
   );
 }
 

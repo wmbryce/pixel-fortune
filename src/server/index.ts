@@ -7,6 +7,7 @@ export const appRouter = router({
   getTarotHand: publicProcedure.query(async () => {
     const newTarotDeck: TarotHandType = createTarotDeck();
     const newHand: TarotHandType = newTarotDeck.slice(0, 5);
+    console.log("getTarotHand: ", newHand);
     return newHand;
   }),
   getFortune: publicProcedure.mutation(async (opts) => {
