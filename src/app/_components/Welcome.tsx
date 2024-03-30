@@ -9,7 +9,7 @@ function Welcome({}: Props) {
       height={600}
       width={600}
       className="flex object-contain animate-fadeIn h-[900px] w-[1200px]"
-      src={"/../../../assets/Background/MainImage.png"}
+      src={"/assets/Background/MainImage.png"}
       alt={"Pixel Fortune"}
     />
   );
