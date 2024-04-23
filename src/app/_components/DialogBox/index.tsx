@@ -28,8 +28,6 @@ function DialogBox({
   stateIndex,
   setStateIndex,
 }: Props) {
-  //   let [stateIndex, setStateIndex] = useState<number>(0);
-  //   const currentState = useRef<number>(0);
   const [skip, setSkip] = useState<any>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
 
