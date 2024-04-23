@@ -30,8 +30,8 @@ function DialogBox({
 }: Props) {
   //   let [stateIndex, setStateIndex] = useState<number>(0);
   //   const currentState = useRef<number>(0);
-  const [skip, setSkip] = useState<any>({});
-  const [typingComplete, setTypingComplete] = useState<any>({});
+  const [skip, setSkip] = useState<any>(false);
+  const [typingComplete, setTypingComplete] = useState<boolean>(false);
 
   const {
     mutate: fetchFortune,
@@ -100,6 +100,7 @@ function DialogBox({
   useEffect(() => {
     const dialogButton = document.getElementById("dialogButton");
     const nextKeyPress = () => {
+      console.log(" in nextKeyPress: ", { skip, typingComplete });
       if (!skip && !typingComplete) {
         setSkip(true);
       } else {
@@ -114,6 +115,8 @@ function DialogBox({
       dialogButton?.removeEventListener("click", nextKeyPress);
     };
   }, [stateIndex, skip, dialogStates, typingComplete]);
+
+  //   console.log("typingComplete:", typingComplete);
 
   return (
     <div className="relative animate-fadeIn flex flex-col flex-1 w-[100%] items-center opacity-[90%]">
