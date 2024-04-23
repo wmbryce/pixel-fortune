@@ -26,7 +26,7 @@ export default function Card({ data }: Props) {
           <Image
             width={300}
             height={500}
-            className="h-[500px] w-[290px] object-contain"
+            className="h-[500px] w-[300px] object-contain"
             src={
               showCardFace
                 ? "/assets/cards/" + data?.image

@@ -1,14 +1,10 @@
-import React, {
-  useState,
-  useCallback,
-  useEffect,
-  Dispatch,
-  SetStateAction,
-} from "react";
+"use client";
+
+import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { trpc } from "../../_trpc/client";
 import { DialogButton } from "../DialogButton";
 import "./background.css";
-import { WELCOME_MESSAGE } from "./data";
+import { RESET_MESSAGE, WELCOME_MESSAGE } from "./data";
 import TypingText from "../TypingText";
 
 type tableStateType = {
@@ -33,7 +29,9 @@ function DialogBox({
   setStateIndex,
 }: Props) {
   //   let [stateIndex, setStateIndex] = useState<number>(0);
-  const [currentState, setCurrentState] = useState<any>({});
+  //   const currentState = useRef<number>(0);
+  const [skip, setSkip] = useState<any>({});
+  const [typingComplete, setTypingComplete] = useState<any>({});
 
   const {
     mutate: fetchFortune,
@@ -84,7 +82,7 @@ function DialogBox({
     const tail = [
       {
         label: "Reset",
-        body: "",
+        body: RESET_MESSAGE,
         action: () => {
           setStateIndex(0);
           resetData();
@@ -99,17 +97,23 @@ function DialogBox({
     generateTableStates([])
   );
 
-  const nextKeyPress = useCallback(() => {
-    console.log("next key press!!!!", stateIndex);
-    dialogStates?.[stateIndex]?.action();
-  }, [stateIndex, dialogStates]);
-
   useEffect(() => {
+    const dialogButton = document.getElementById("dialogButton");
+    const nextKeyPress = () => {
+      if (!skip && !typingComplete) {
+        setSkip(true);
+      } else {
+        dialogStates?.[stateIndex]?.action();
+        setSkip(false);
+      }
+    };
     window.addEventListener("keydown", nextKeyPress);
+    dialogButton?.addEventListener("click", nextKeyPress);
     return () => {
       window.removeEventListener("keydown", nextKeyPress);
+      dialogButton?.removeEventListener("click", nextKeyPress);
     };
-  }, []);
+  }, [stateIndex, skip, dialogStates, typingComplete]);
 
   return (
     <div className="relative animate-fadeIn flex flex-col flex-1 w-[100%] items-center opacity-[90%]">
@@ -117,13 +121,11 @@ function DialogBox({
         <TypingText
           text={dialogStates?.[stateIndex]?.body}
           delay={1000}
-          skip={false}
+          skip={skip}
+          setTypingComplete={setTypingComplete}
         />
         <div className="absolute bottom-8 right-16">
-          <DialogButton
-            onClick={dialogStates?.[stateIndex]?.action}
-            loading={isLoading}
-          >
+          <DialogButton id={"dialogButton"} loading={isLoading}>
             {dialogStates?.[stateIndex]?.label}
           </DialogButton>
         </div>

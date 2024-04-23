@@ -1,13 +1,14 @@
-import React, { use, useEffect, useState } from "react";
+import React, { SetStateAction, use, useEffect, useState } from "react";
 import { DialogButton } from "./DialogButton";
 
 type Props = {
   text: string;
   delay: number;
   skip: boolean;
+  setTypingComplete: any;
 };
 
-function TypingText({ text, delay, skip }: Props) {
+function TypingText({ text, delay, skip, setTypingComplete }: Props) {
   const [startIndex, setStartIndex] = useState<number>(0);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [delayComplete, setDelayComplete] = useState<boolean>(false);
@@ -21,13 +22,19 @@ function TypingText({ text, delay, skip }: Props) {
   }, [text]);
 
   useEffect(() => {
-    if (
+    if (skip) {
+      setCurrentIndex(text?.length);
+    } else if (
       delayComplete &&
       text?.length > currentIndex &&
       maxCharacters > currentIndex - startIndex
     ) {
+      setTypingComplete(false);
       setTimeout(() => {
         setCurrentIndex(currentIndex + 1);
+        if (currentIndex + 1 === text?.length) {
+          setTypingComplete(true);
+        }
       }, typingInterval);
     } else {
       setTimeout(() => {
