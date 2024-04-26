@@ -19,7 +19,7 @@ export default function CardTable({ tarotHand }: Props) {
     }
   });
   return (
-    <div className="flex flex-row my-[30px] flex-1">
+    <div className="flex flex-wrap my-[30px] flex-1 justify-center">
       {tarotHand
         ? tarotHand?.map((data: CardType, index: number) => (
             <Card key={index} data={index < visibleCards ? data : null} />

@@ -19,14 +19,18 @@ export default function Card({ data }: Props) {
     }
   });
 
+  const width = 80;
+
+  const height = (3 / 5) * 80;
+
   return (
     <>
-      {data ? (
-        <div className="h-96 w-64 p-4 m-4 bg-white br-4 flex flex-col align-center justify-center rounded-md overflow animate-fadeIn">
+      {data && (
+        <div className="sm:h-[15rem] md:h-[25rem] sm:w-[9rem] md:w-[15rem] lg: w-[15rem] p-4 m-4 bg-white br-4  align-center justify-center rounded-md animate-fadeIn">
           <Image
             width={300}
             height={500}
-            className="h-[500px] w-[300px] object-contain"
+            className="h-[22rem] w-[13.2rem]"
             src={
               showCardFace
                 ? "/assets/cards/" + data?.image
@@ -36,8 +40,6 @@ export default function Card({ data }: Props) {
           />
           <div className="text-black align-center font-sans">{data?.name}</div>
         </div>
-      ) : (
-        <div className="h-96 w-64 p-4 m-4 bg-brown_02 opacity-0 br-4 flex flex-col align-center justify-center rounded-md"></div>
       )}
     </>
   );
