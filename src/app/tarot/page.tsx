@@ -38,6 +38,7 @@ export default function Home() {
       <div className="absolute bottom-0 left-0 w-[100%] px-[200px]">
         {showDialogBox && (
           <DialogBox
+            tarotHand={tarotHand}
             fetchHand={fetchHand}
             setFetchHand={setFetchHand}
             stateIndex={stateIndex}

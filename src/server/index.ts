@@ -12,8 +12,9 @@ export const appRouter = router({
   }),
   getFortune: publicProcedure.mutation(async (opts) => {
     try {
-      const response = await generateMockFortune();
-      //   const response = await generateFortune();
+      // const response = await generateMockFortune();
+      console.log("opts in pub procedure: ", opts);
+      const response = await generateFortune();
 
       return response;
     } catch (error) {

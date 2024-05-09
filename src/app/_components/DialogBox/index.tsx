@@ -14,6 +14,7 @@ type tableStateType = {
 };
 
 type Props = {
+  tarotHand: any;
   fetchHand: boolean;
   setFetchHand: Dispatch<SetStateAction<boolean>>;
   resetData: any;
@@ -22,6 +23,7 @@ type Props = {
 };
 
 function DialogBox({
+  tarotHand,
   fetchHand,
   setFetchHand,
   resetData,
