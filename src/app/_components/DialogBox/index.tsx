@@ -32,11 +32,13 @@ function DialogBox({
 }: Props) {
   const [skip, setSkip] = useState<any>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   const {
     mutate: fetchFortune,
     isLoading,
     data,
+    variables,
   } = trpc.getFortune.useMutation({
     onSettled: (data) => {
       let textArray: string[] = [];
@@ -45,62 +47,58 @@ function DialogBox({
         console.log("splitting text into an array: ", textArray);
       }
       setDialogStates(generateTableStates(textArray));
-      setStateIndex(2);
+      // setStateIndex(0);
     },
   });
 
-  const generateTableStates = (textArray: string[]): tableStateType[] => {
-    const head = [
-      {
-        label: "Draw Hand",
-        body: WELCOME_MESSAGE,
-        action: () => {
-          setFetchHand(true);
-          setStateIndex(1);
-        },
+  const startState = [
+    {
+      label: "Draw Hand",
+      body: WELCOME_MESSAGE,
+      action: () => {
+        setFetchHand(true);
+        // setStateIndex(1);
       },
-      {
-        label: "Generate Fortune",
-        body: WELCOME_MESSAGE,
-        action: () => {
-          fetchFortune();
-        },
-      },
-    ];
+    },
+  ];
 
+  const [dialogStates, setDialogStates] =
+    useState<tableStateType[]>(startState);
+
+  const generateTableStates = (textArray: string[]): tableStateType[] => {
     const mid = textArray.map((text, index) => {
       return {
         label: "Continue",
         body: text,
         action: () => {
-          console.log("setting state to: ", index + 3);
-          setStateIndex(index + 3);
+          setStateIndex(index + 1);
         },
       };
     });
-
     const tail = [
       {
         label: "Reset",
         body: RESET_MESSAGE,
         action: () => {
+          setDialogStates(startState);
           setStateIndex(0);
           resetData();
         },
       },
     ];
 
-    return [...head, ...mid, ...tail];
+    return [...mid, ...tail];
   };
 
-  const [dialogStates, setDialogStates] = useState<tableStateType[]>(
-    generateTableStates([])
-  );
+  useEffect(() => {
+    if (tarotHand.length === 5) {
+      fetchFortune(tarotHand);
+    }
+  }, [tarotHand]);
 
   useEffect(() => {
     const dialogButton = document.getElementById("dialogButton");
     const nextKeyPress = () => {
-      console.log(" in nextKeyPress: ", { skip, typingComplete });
       if (!skip && !typingComplete) {
         setSkip(true);
       } else {
@@ -115,8 +113,6 @@ function DialogBox({
       dialogButton?.removeEventListener("click", nextKeyPress);
     };
   }, [stateIndex, skip, dialogStates, typingComplete]);
-
-  //   console.log("typingComplete:", typingComplete);
 
   return (
     <div className="relative animate-fadeIn flex flex-col flex-1 w-[100%] items-center opacity-[90%]">

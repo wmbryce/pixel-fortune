@@ -8,7 +8,7 @@ export const TarotDeck = [
   {
     name: "The Magician",
     id: 1,
-    image: "Tarot_01_Magician",
+    image: "Tarot_01_Magician.png",
     description: "",
   },
   {
@@ -128,8 +128,8 @@ export const TarotDeck = [
   {
     name: "The World",
     id: 21,
-    image: "",
-    description: "Tarot_21_World.png",
+    image: "Tarot_21_World.png",
+    description: "",
   },
   {
     name: "Ace of Wands",

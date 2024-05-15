@@ -15,7 +15,7 @@ const generateFortunePrompt = (tarotHand: CardType[]) => {
     .join(", ");
 
   const prompt = `
-    Please provide a detailed and insightful fortune reading based on a draw of 6 tarot cards.
+    Please provide a detailed and insightful fortune reading based on a draw of 5 tarot cards.
     Interpret the cards in the context of the querent's life and current situation, offering guidance and insights that can help them navigate their path ahead.
     The cards drawn are as follows: ${cardString}.
     Provide a comprehensive reading that covers the past, present, and future aspects, along with any symbolism, emotions, or messages conveyed by the cards.
@@ -45,11 +45,11 @@ export const generateFortune = async (tarotHand?: CardType[]) => {
 
     const prompt = generateFortunePrompt(tarotHand);
 
-    console.log("prompt: ", tarotHand);
+    console.log("prompt: ", prompt);
 
     const response = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: "gpt-3.5-turbo",
+      model: "gpt-3.5-turbo-16k",
     });
 
     const fortuneReading = response?.choices?.[0]?.message?.content;

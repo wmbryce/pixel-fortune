@@ -30,7 +30,6 @@ export default function Home() {
       setShowDialogBox(true);
     }, 2000);
   });
-  // console.log("fetch hand: ", fetchHand, getTarotHand?.data);
 
   return (
     <main className="flex flex-1 flex-col justify-between">
