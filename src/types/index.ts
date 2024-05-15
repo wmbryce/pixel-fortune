@@ -3,7 +3,7 @@ export type FortuneType = {
 };
 
 export type CardType = {
-  id: string;
+  id: number;
   image: string;
   description: string;
   name: string;
