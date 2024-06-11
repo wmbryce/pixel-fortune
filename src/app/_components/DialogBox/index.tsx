@@ -6,6 +6,8 @@ import { DialogButton } from "../DialogButton";
 import "./background.css";
 import { RESET_MESSAGE, WELCOME_MESSAGE } from "./data";
 import TypingText from "../TypingText";
+import { AnimatePresence, motion } from "framer-motion";
+import Card from "../Card";
 
 type tableStateType = {
   label: string;
@@ -33,6 +35,8 @@ function DialogBox({
   const [skip, setSkip] = useState<any>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
+  const [hideAll, setHideAll] = useState(true);
+  const [hideDialog, setHideDialog] = useState(true);
 
   const {
     mutate: fetchFortune,
@@ -87,7 +91,8 @@ function DialogBox({
       },
     ];
 
-    return [...mid, ...tail];
+    // return [...mid, ...tail];
+    return [...tail];
   };
 
   useEffect(() => {
@@ -114,22 +119,60 @@ function DialogBox({
     };
   }, [stateIndex, skip, dialogStates, typingComplete]);
 
+  useEffect(() => {
+    setTimeout(() => {
+      setHideAll(false);
+    }, 500);
+    setTimeout(() => {
+      setHideDialog(false);
+    }, 1500);
+  }, []);
+
+  const loadingDots = [1, 2, 3];
+
   return (
-    <div className="relative animate-fadeIn flex flex-col flex-1 w-[100%] items-center opacity-[90%]">
-      <div className="dialog-background flex flex-col h-[360px] w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md my-6">
-        <TypingText
-          text={dialogStates?.[stateIndex]?.body}
-          delay={1000}
-          skip={skip}
-          setTypingComplete={setTypingComplete}
-        />
-        <div className="absolute bottom-8 right-16">
-          <DialogButton id={"dialogButton"} loading={isLoading}>
-            {dialogStates?.[stateIndex]?.label}
-          </DialogButton>
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {hideAll ? null : hideDialog || isLoading ? (
+        <motion.div
+          layoutId={"dialog-box"}
+          initial={{ width: "0%" }}
+          animate={{ width: "100%" }}
+          exit={{ width: "0%" }}
+          transition={{ duration: 1, type: "spring" }}
+          className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
+        >
+          <div className="dialog-background flex flex-col h-[50px] w-[100%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md my-6">
+            {isLoading && (
+              <motion.div
+                className="mx-[50%] my-[5px] h-[20px] w-[20px] bg-brown_01"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, type: "spring" }}
+              />
+            )}
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          layoutId={"dialog-box"}
+          className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
+          transition={{ duration: 1, type: "spring" }}
+        >
+          <div className="dialog-background flex flex-col h-[360px] w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md my-6">
+            <TypingText
+              text={dialogStates?.[stateIndex]?.body}
+              delay={1000}
+              skip={skip}
+              setTypingComplete={setTypingComplete}
+            />
+            <div className="animation-fadeIn absolute bottom-8 right-16">
+              <DialogButton id={"dialogButton"} loading={isLoading}>
+                {dialogStates?.[stateIndex]?.label}
+              </DialogButton>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

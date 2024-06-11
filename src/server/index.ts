@@ -4,6 +4,10 @@ import { TarotHandType } from "@/types";
 import { generateFortune, generateMockFortune } from "./handlers/fortune";
 import { z } from "zod";
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export const appRouter = router({
   getTarotHand: publicProcedure.query(async () => {
     const newTarotDeck: TarotHandType = createTarotDeck();
@@ -24,8 +28,11 @@ export const appRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
-        // const response = await generateMockFortune();
-        const response = await generateFortune(input);
+        const response = await generateMockFortune();
+        // const response = await generateFortune(input);
+
+        const test = await sleep(5000);
+
         return response;
       } catch (error) {
         throw error;

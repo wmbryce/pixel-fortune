@@ -14,6 +14,9 @@ export default function WelcomePage() {
     router.push("/tarot");
   };
 
+  const staggerDelay = 0.1;
+  const stageDuration = 0.01;
+
   useEffect(() => {
     window.addEventListener("keydown", handleKeyPress);
     return () => {
