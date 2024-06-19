@@ -146,7 +146,7 @@ function DialogBox({
               <motion.div
                 className="mx-[50%] my-[5px] h-[20px] w-[20px] bg-brown_01"
                 animate={{ scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, type: "spring" }}
+                transition={{ repeat: Infinity, type: "spring", duration: 1 }}
               />
             )}
           </div>
@@ -164,7 +164,7 @@ function DialogBox({
               skip={skip}
               setTypingComplete={setTypingComplete}
             />
-            <div className="animation-fadeIn absolute bottom-8 right-16">
+            <div className="delay-6 animation-fadeIn absolute bottom-8 right-16">
               <DialogButton id={"dialogButton"} loading={isLoading}>
                 {dialogStates?.[stateIndex]?.label}
               </DialogButton>

@@ -19,15 +19,16 @@ export default function CardTable({ tarotHand }: Props) {
         setVisibleCards(visibleCards + 1);
       }, 900);
     }
-  });
+  }, [visibleCards]);
 
+  console.log("visible cards");
   // const spinningCard = {
   //   spinIn: { 0: {y: -500},
   //   center: { y: 0 },
   //   spinOut: { y: 500 },
   // };
 
-  console.log("testing card table");
+  console.log("testing card table: ", tarotHand);
 
   useEffect(() => {
     console.log("start animation");
@@ -36,14 +37,16 @@ export default function CardTable({ tarotHand }: Props) {
   return (
     <motion.ul className="flex flex-wrap my-[30px] flex-1 justify-start">
       <AnimatePresence>
-        {tarotHand?.map((data: CardType, index: number) => (
-          <motion.li key={index}>
-            <Card
-              id={"t-card-" + index}
-              data={index < visibleCards ? data : null}
-            />
-          </motion.li>
-        ))}
+        {tarotHand
+          ?.slice(0, visibleCards)
+          .map((data: CardType, index: number) => (
+            <motion.li key={index} initial={{ y: -300 }} animate={{ y: 0 }}>
+              <Card
+                id={"t-card-" + index}
+                data={index < visibleCards ? data : null}
+              />
+            </motion.li>
+          ))}
       </AnimatePresence>
     </motion.ul>
   );

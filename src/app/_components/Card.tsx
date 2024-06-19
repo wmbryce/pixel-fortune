@@ -70,9 +70,7 @@ export default function Card(props: Props) {
     }
   };
 
-  const width = 80;
-
-  const height = (3 / 5) * 80;
+  console.log("manual reveal: ", manualReveal);
   return !!data ? (
     <motion.div
       {...props}
@@ -81,25 +79,33 @@ export default function Card(props: Props) {
       onClick={revealCard}
       ref={cardRef}
     >
-      <AnimatePresence>
-        <motion.div className="relative">
-          <Image
-            width={300}
-            height={500}
-            className="h-[22rem] w-[13.2rem]"
-            src={"/assets/cards/" + data?.image}
-            alt={data?.name}
-          />
-          <div className="text-black align-center font-sans">{data?.name}</div>
-          <Image
-            width={300}
-            height={500}
-            className="h-[22rem] w-[13.2rem] absolute top-0"
-            src={"/assets/cards/CardBack.png"}
-            alt={data?.name}
-          />
-        </motion.div>
-      </AnimatePresence>
+      <motion.div className="relative">
+        <Image
+          width={300}
+          height={500}
+          className="h-[22rem] w-[13.2rem]"
+          src={"/assets/cards/" + data?.image}
+          alt={data?.name}
+        />
+        <div className="text-black align-center font-sans">{data?.name}</div>
+        <AnimatePresence>
+          {!manualReveal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Image
+                width={300}
+                height={500}
+                className="h-[23.4rem] w-[16.2rem] absolute top-0"
+                src={"/assets/cards/CardBack.png"}
+                alt={data?.name}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </motion.div>
   ) : null;
 }
