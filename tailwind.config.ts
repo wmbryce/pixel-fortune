@@ -23,6 +23,7 @@ const config: Config = {
         brown_01: "#843706",
         brown_02: "#FBC070",
         brown_03: "#5E140A",
+        brown_04: "#0B0012B0",
       },
       keyframes: {
         fadeInOut: {

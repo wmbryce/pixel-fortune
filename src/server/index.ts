@@ -28,10 +28,9 @@ export const appRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
-        const response = await generateMockFortune();
-        // const response = await generateFortune(input);
-
-        const test = await sleep(5000);
+        // const response = await generateMockFortune();
+        // const test = await sleep(5000);
+        const response = await generateFortune(input);
 
         return response;
       } catch (error) {

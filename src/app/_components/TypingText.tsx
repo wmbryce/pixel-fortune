@@ -24,6 +24,7 @@ function TypingText({ text, delay, skip, setTypingComplete }: Props) {
   useEffect(() => {
     if (skip) {
       setCurrentIndex(text?.length);
+      setTypingComplete(false);
     } else if (
       delayComplete &&
       text?.length > currentIndex &&

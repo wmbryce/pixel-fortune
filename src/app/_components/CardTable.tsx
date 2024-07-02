@@ -8,46 +8,81 @@ import { randomInt } from "crypto";
 
 type Props = {
   tarotHand?: CardType[];
+  setAllRevealed: (revealed: boolean) => void;
 };
 
-export default function CardTable({ tarotHand }: Props) {
+export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const [visibleCards, setVisibleCards] = useState<number>(-1);
   const emptyArray = [null, null, null, null, null];
+
+  const [revealedCards, setRevealedCards] = useState([
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
+
   useEffect(() => {
-    if (!!tarotHand && visibleCards < 6) {
-      setTimeout(() => {
-        setVisibleCards(visibleCards + 1);
-      }, 900);
+    if (!!tarotHand?.length && tarotHand?.length > 0) {
+      if (visibleCards < 6) {
+        setTimeout(() => {
+          setVisibleCards(visibleCards + 1);
+        }, 400);
+      }
+    } else {
+      setVisibleCards(0);
+      setRevealedCards([false, false, false, false, false]);
     }
-  }, [visibleCards]);
+  }, [tarotHand, visibleCards]);
 
-  console.log("visible cards");
-  // const spinningCard = {
-  //   spinIn: { 0: {y: -500},
-  //   center: { y: 0 },
-  //   spinOut: { y: 500 },
-  // };
-
-  console.log("testing card table: ", tarotHand);
+  useEffect(() => {
+    if (!revealedCards.includes(false)) {
+      setAllRevealed(true);
+    }
+  }, [revealedCards, setAllRevealed]);
 
   useEffect(() => {
     console.log("start animation");
   }, [tarotHand]);
 
+  const UpdateRevealCard = (index: number) => {
+    console.log("update reveal card: ", index);
+    const newRevealedCards = [...revealedCards];
+    newRevealedCards[index] = true;
+    setRevealedCards(newRevealedCards);
+  };
+
   return (
-    <motion.ul className="flex flex-wrap my-[30px] flex-1 justify-start">
-      <AnimatePresence>
-        {tarotHand
-          ?.slice(0, visibleCards)
-          .map((data: CardType, index: number) => (
-            <motion.li key={index} initial={{ y: -300 }} animate={{ y: 0 }}>
-              <Card
-                id={"t-card-" + index}
-                data={index < visibleCards ? data : null}
-              />
-            </motion.li>
-          ))}
-      </AnimatePresence>
+    <motion.ul layout className="flex flex-wrap my-[30px] flex-1">
+      <div className="flex flex-1" />
+      <div className="flex flex-1 justify-start">
+        <AnimatePresence>
+          {tarotHand
+            ?.slice(0, visibleCards)
+            .map((data: CardType, index: number) => (
+              <motion.li
+                key={index}
+                layoutId={"card-" + index}
+                className="relative"
+                initial={{ y: -500 }}
+                animate={{
+                  y: 0,
+                  transition: { type: "spring", duration: "1" },
+                }}
+              >
+                <Card
+                  id={"t-card-" + index}
+                  index={index}
+                  reveal={revealedCards?.[index]}
+                  setReveal={UpdateRevealCard}
+                  data={index < visibleCards ? data : null}
+                />
+              </motion.li>
+            ))}
+        </AnimatePresence>
+      </div>
+      <div className="flex flex-1" />
     </motion.ul>
   );
 }

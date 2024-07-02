@@ -4,10 +4,11 @@ import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { trpc } from "../../_trpc/client";
 import { DialogButton } from "../DialogButton";
 import "./background.css";
-import { RESET_MESSAGE, WELCOME_MESSAGE } from "./data";
+import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from "./data";
 import TypingText from "../TypingText";
 import { AnimatePresence, motion } from "framer-motion";
 import Card from "../Card";
+import { useRouter } from "next/navigation";
 
 type tableStateType = {
   label: string;
@@ -17,6 +18,7 @@ type tableStateType = {
 
 type Props = {
   tarotHand: any;
+  allRevealed: boolean;
   fetchHand: boolean;
   setFetchHand: Dispatch<SetStateAction<boolean>>;
   resetData: any;
@@ -26,6 +28,7 @@ type Props = {
 
 function DialogBox({
   tarotHand,
+  allRevealed,
   fetchHand,
   setFetchHand,
   resetData,
@@ -35,8 +38,10 @@ function DialogBox({
   const [skip, setSkip] = useState<any>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState<null | string>(null);
   const [hideAll, setHideAll] = useState(true);
   const [hideDialog, setHideDialog] = useState(true);
+  const router = useRouter();
 
   const {
     mutate: fetchFortune,
@@ -65,6 +70,14 @@ function DialogBox({
       },
     },
   ];
+  const reveal = {
+    label: "Continue",
+    body: REVEAL_MESSAGE,
+    action: () => {
+      setStateIndex(1);
+      // setStateIndex(1);
+    },
+  };
 
   const [dialogStates, setDialogStates] =
     useState<tableStateType[]>(startState);
@@ -75,40 +88,59 @@ function DialogBox({
         label: "Continue",
         body: text,
         action: () => {
-          setStateIndex(index + 1);
+          setStateIndex(index + 2);
         },
       };
     });
     const tail = [
       {
-        label: "Reset",
+        label: "Complete",
         body: RESET_MESSAGE,
         action: () => {
           setDialogStates(startState);
           setStateIndex(0);
           resetData();
+          router.push("/welcome");
         },
       },
     ];
 
-    // return [...mid, ...tail];
-    return [...tail];
+    return [reveal, ...mid, ...tail];
   };
 
   useEffect(() => {
     if (tarotHand.length === 5) {
       fetchFortune(tarotHand);
+      setFetchHand(false);
+      setDialogStates([reveal]);
     }
   }, [tarotHand]);
 
   useEffect(() => {
     const dialogButton = document.getElementById("dialogButton");
     const nextKeyPress = () => {
-      if (!skip && !typingComplete) {
-        setSkip(true);
-      } else {
-        dialogStates?.[stateIndex]?.action();
-        setSkip(false);
+      console.log(
+        "key press vars!",
+        { isLoading, hideAll, hideDialog },
+        !isLoading && !hideAll && !hideDialog
+      );
+      if (!isLoading && !hideAll && !hideDialog) {
+        console.log("skip & typing complete: ", { skip, typingComplete });
+        if (!skip && !typingComplete) {
+          setSkip(true);
+          setErrorText(null);
+        } else {
+          if (!allRevealed && tarotHand.length === 5) {
+            console.log("allRevealed: ", { allRevealed, tarotHand });
+            setErrorText(
+              "You must reveal all the cards before you can continue!"
+            );
+          } else {
+            dialogStates?.[stateIndex]?.action();
+            setSkip(false);
+            setErrorText(null);
+          }
+        }
       }
     };
     window.addEventListener("keydown", nextKeyPress);
@@ -117,7 +149,16 @@ function DialogBox({
       window.removeEventListener("keydown", nextKeyPress);
       dialogButton?.removeEventListener("click", nextKeyPress);
     };
-  }, [stateIndex, skip, dialogStates, typingComplete]);
+  }, [
+    stateIndex,
+    skip,
+    dialogStates,
+    typingComplete,
+    hideAll,
+    isLoading,
+    hideDialog,
+    allRevealed,
+  ]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -145,7 +186,7 @@ function DialogBox({
             {isLoading && (
               <motion.div
                 className="mx-[50%] my-[5px] h-[20px] w-[20px] bg-brown_01"
-                animate={{ scale: [1, 1.1, 1] }}
+                animate={{ scale: [1, 1.5, 1] }}
                 transition={{ repeat: Infinity, type: "spring", duration: 1 }}
               />
             )}
@@ -164,7 +205,8 @@ function DialogBox({
               skip={skip}
               setTypingComplete={setTypingComplete}
             />
-            <div className="delay-6 animation-fadeIn absolute bottom-8 right-16">
+            <div className="delay-6 animation-fadeIn absolute bottom-8 right-16 flex flex-row items-center">
+              {errorText && <div className="font-sans mr-4">{errorText}</div>}
               <DialogButton id={"dialogButton"} loading={isLoading}>
                 {dialogStates?.[stateIndex]?.label}
               </DialogButton>

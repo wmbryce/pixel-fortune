@@ -12,12 +12,15 @@ export default function Home() {
   const [showDialogBox, setShowDialogBox] = useState<boolean>(false);
   const [stateIndex, setStateIndex] = useState<number>(0);
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
+  const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
+  console.log("All Revealed: ", allRevealed);
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
     onSuccess: (data) => {
       setTarotHand(data);
       setFetchHand(false);
+      setAllRevealed(false);
     },
   });
 
@@ -33,10 +36,11 @@ export default function Home() {
 
   return (
     <main className="flex flex-1 flex-col justify-between">
-      <CardTable tarotHand={tarotHand} />
+      <CardTable tarotHand={tarotHand} setAllRevealed={setAllRevealed} />
       <div className="absolute bottom-0 left-0 w-[100%] px-[200px]">
         {showDialogBox && (
           <DialogBox
+            allRevealed={allRevealed}
             tarotHand={tarotHand}
             fetchHand={fetchHand}
             setFetchHand={setFetchHand}
