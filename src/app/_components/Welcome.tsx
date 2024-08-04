@@ -5,13 +5,16 @@ type Props = {};
 
 function Welcome({}: Props) {
   return (
+    <div className="relative w-full h-full">
     <Image
-      height={600}
-      width={600}
-      className="flex object-contain animate-fadeIn h-[900px] w-[1200px]"
+      fill
+      className="object-contain animate-fadeIn"
       src={"/assets/background/welcome_image.png"}
       alt={"Pixel Fortune"}
-    />
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      priority
+      />
+    </div>
   );
 }
 
