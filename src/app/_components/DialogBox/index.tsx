@@ -198,7 +198,7 @@ function DialogBox({
           className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
           transition={{ duration: 1, type: "spring" }}
         >
-          <div className="dialog-background flex flex-col h-[360px] w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md my-6">
+          <div className="dialog-background flex flex-col min-h-36 w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md mt-6">
             <TypingText
               text={dialogStates?.[stateIndex]?.body}
               delay={1000}
@@ -206,13 +206,13 @@ function DialogBox({
               setTypingComplete={setTypingComplete}
             />
             <AnimatePresence>
-              {skip || typingComplete}
-              <motion.div className="delay-6 animation-fadeIn absolute bottom-8 right-16 flex flex-row items-center">
+              {skip || typingComplete && 
+              <motion.div className="flex flex-1 delay-6 animation-fadeIn bottom-4 right-16 flex flex-row items-center justify-end">
                 {errorText && <div className="font-sans mr-4">{errorText}</div>}
                 <DialogButton id={"dialogButton"} loading={isLoading}>
                   {dialogStates?.[stateIndex]?.label}
                 </DialogButton>
-              </motion.div>
+              </motion.div>}
             </AnimatePresence>
           </div>
         </motion.div>

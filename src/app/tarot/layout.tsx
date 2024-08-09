@@ -11,7 +11,7 @@ type Props = {
 
 export default function TarotLayout({ children }: Props) {
   return (
-    <main className="flex min-h-screen flex-col bg-grey animate-fadeIn lg:mx-32">
+    <main className="flex min-h-screen flex-col bg-grey animate-fadeIn lg:mx-16">
       <PageHeader />
       <div className="custom-background  flex-col h-[96vh] justify-between overflow-scroll">
         {/* <img src="/assets/background/tarot_background_1.png"></img> */}
