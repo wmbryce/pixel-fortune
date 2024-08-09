@@ -37,8 +37,6 @@ export const generateMockFortune = async (tarotHand?: CardType[]) => {
 
 export const generateFortune = async (tarotHand?: CardType[]) => {
   try {
-    console.log("generating fortune with this hand: ", tarotHand);
-
     if (!tarotHand) {
       tarotHand = createTarotDeck().slice(0, 5);
     }

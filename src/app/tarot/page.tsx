@@ -37,7 +37,7 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col justify-between">
       <CardTable tarotHand={tarotHand} setAllRevealed={setAllRevealed} />
-      <div className="absolute bottom-0 left-0 w-[100%] px-[200px]">
+      <div className="bottom-0 left-0 w-[100%] px-6 lg:px-[200px]">
         {showDialogBox && (
           <DialogBox
             allRevealed={allRevealed}

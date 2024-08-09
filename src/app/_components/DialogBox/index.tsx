@@ -205,12 +205,15 @@ function DialogBox({
               skip={skip}
               setTypingComplete={setTypingComplete}
             />
-            <div className="delay-6 animation-fadeIn absolute bottom-8 right-16 flex flex-row items-center">
-              {errorText && <div className="font-sans mr-4">{errorText}</div>}
-              <DialogButton id={"dialogButton"} loading={isLoading}>
-                {dialogStates?.[stateIndex]?.label}
-              </DialogButton>
-            </div>
+            <AnimatePresence>
+              {skip || typingComplete}
+              <motion.div className="delay-6 animation-fadeIn absolute bottom-8 right-16 flex flex-row items-center">
+                {errorText && <div className="font-sans mr-4">{errorText}</div>}
+                <DialogButton id={"dialogButton"} loading={isLoading}>
+                  {dialogStates?.[stateIndex]?.label}
+                </DialogButton>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </motion.div>
       )}

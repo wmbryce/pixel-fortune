@@ -55,8 +55,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
 
   return (
     <motion.ul layout className="flex flex-wrap my-[30px] flex-1">
-      <div className="flex flex-1" />
-      <div className="flex flex-1 justify-start">
+      <div className="flex flex-wrap flex-1 justify-center">
         <AnimatePresence>
           {tarotHand
             ?.slice(0, visibleCards)
@@ -82,7 +81,6 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
             ))}
         </AnimatePresence>
       </div>
-      <div className="flex flex-1" />
     </motion.ul>
   );
 }
