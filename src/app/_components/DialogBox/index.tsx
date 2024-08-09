@@ -198,7 +198,7 @@ function DialogBox({
           className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
           transition={{ duration: 1, type: "spring" }}
         >
-          <div className="dialog-background flex flex-col min-h-36 w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md mt-6">
+          <div className="dialog-background flex flex-col h-64 w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6">
             <TypingText
               text={dialogStates?.[stateIndex]?.body}
               delay={1000}

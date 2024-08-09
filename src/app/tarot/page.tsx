@@ -37,7 +37,7 @@ export default function Home() {
   return (
     <main className="justify-between">
       <CardTable tarotHand={tarotHand} setAllRevealed={setAllRevealed} />
-      <div className="bottom-0 left-0 w-[100%] px-6 lg:px-[200px] flex flex-1">
+      <div className="absolute bottom-8 left-0 w-[100%] px-6 lg:px-[200px] flex flex-1">
         {showDialogBox && (
           <DialogBox
             allRevealed={allRevealed}
