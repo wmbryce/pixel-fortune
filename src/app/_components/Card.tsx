@@ -107,7 +107,7 @@ export default function Card(props: Props) {
         className="relative bg-white rounded-md w-full h-full p-2"
       >
         <motion.div className="relative
-          w-24 h-36 sm:w-32 sm:h-48 md:w-40 md:h-60
+          w-24 h-36 sm:w-32 sm:h-48 md:w-40 md:h-60 xl:w-48 xl:h-72
           ">
           <Image
             fill

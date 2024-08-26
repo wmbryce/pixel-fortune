@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "wt-styles": "npx tailwindcss -i ./src/app/styles/global.css -o ./src/app/styles/output.css --watch",
+    "rf-styles": "npx tailwindcss -i ./src/app/styles/global.css -o ./src/app/styles/output.css"
   },
   "dependencies": {
     "@tanstack/react-query": "^4.36.1",

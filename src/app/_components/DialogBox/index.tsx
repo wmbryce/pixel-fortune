@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect, Dispatch, SetStateAction } from "react";
 import { trpc } from "../../_trpc/client";
 import { DialogButton } from "../DialogButton";
 import "./background.css";
@@ -41,6 +41,9 @@ function DialogBox({
   const [errorText, setErrorText] = useState<null | string>(null);
   const [hideAll, setHideAll] = useState(true);
   const [hideDialog, setHideDialog] = useState(true);
+
+  const scrollRef = useRef<any>(null);
+
   const router = useRouter();
 
   const {
@@ -169,6 +172,16 @@ function DialogBox({
     }, 1500);
   }, []);
 
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  };
+
+  useLayoutEffect(() => {
+      scrollToBottom();
+  }, [scrollRef?.current?.scrollHeight]);
+
   const loadingDots = [1, 2, 3];
 
   return (
@@ -188,8 +201,7 @@ function DialogBox({
                 className="mx-[50%] my-[5px] h-[20px] w-[20px] bg-brown_01"
                 animate={{ scale: [1, 1.5, 1] }}
                 transition={{ repeat: Infinity, type: "spring", duration: 1 }}
-              />
-            )}
+              />)}
           </div>
         </motion.div>
       ) : (
@@ -198,16 +210,24 @@ function DialogBox({
           className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
           transition={{ duration: 1, type: "spring" }}
         >
-          <div className="dialog-background flex flex-col h-64 w-[100%] p-8 border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6">
+          <div className="dialog-background flex flex-col justify-between h-64 w-[100%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6">
+            <div ref={scrollRef} className=" p-8 overflow-y-scroll">
             <TypingText
               text={dialogStates?.[stateIndex]?.body}
               delay={1000}
               skip={skip}
               setTypingComplete={setTypingComplete}
             />
+            </div>
             <AnimatePresence>
               {skip || typingComplete && 
-              <motion.div className="flex flex-1 delay-6 animation-fadeIn bottom-4 right-16 flex flex-row items-center justify-end">
+                <motion.div 
+                  initial={{ opacity: 0, y: "100%" }}
+                  animate={{ opacity: 1, y: "0%" }}
+                  exit={{ opacity: 0, y: "100%" }}
+                  className="flex flex-row items-center border-t-[2px] border-brown_01 justify-end bg-[#FFFFFF00] p-2 text-brown_02 font-sans"
+                  transition={{ duration: 2, type: "spring" }}
+                >
                 {errorText && <div className="font-sans mr-4">{errorText}</div>}
                 <DialogButton id={"dialogButton"} loading={isLoading}>
                   {dialogStates?.[stateIndex]?.label}

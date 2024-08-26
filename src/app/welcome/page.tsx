@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import "../globals.css";
+import "../styles/global.css";
 import Welcome from "../_components/Welcome";
 import { redirect } from "next/navigation";
 import { useRouter } from "next/navigation";
