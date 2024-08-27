@@ -121,10 +121,6 @@ function DialogBox({
   useEffect(() => {
     const dialogButton = document.getElementById("dialogButton");
     const nextKeyPress = () => {
-        "key press vars!",
-        { isLoading, hideAll, hideDialog },
-        !isLoading && !hideAll && !hideDialog
-      );
       if (!isLoading && !hideAll && !hideDialog) {
         if (!skip && !typingComplete) {
           setSkip(true);
