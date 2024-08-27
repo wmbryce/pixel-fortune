@@ -56,7 +56,6 @@ function DialogBox({
       let textArray: string[] = [];
       if (typeof data === "string") {
         textArray = data?.split(/\n\s*\n+/);
-        console.log("splitting text into an array: ", textArray);
       }
       setDialogStates(generateTableStates(textArray));
       // setStateIndex(0);
@@ -122,19 +121,16 @@ function DialogBox({
   useEffect(() => {
     const dialogButton = document.getElementById("dialogButton");
     const nextKeyPress = () => {
-      console.log(
         "key press vars!",
         { isLoading, hideAll, hideDialog },
         !isLoading && !hideAll && !hideDialog
       );
       if (!isLoading && !hideAll && !hideDialog) {
-        console.log("skip & typing complete: ", { skip, typingComplete });
         if (!skip && !typingComplete) {
           setSkip(true);
           setErrorText(null);
         } else {
           if (!allRevealed && tarotHand.length === 5) {
-            console.log("allRevealed: ", { allRevealed, tarotHand });
             setErrorText(
               "You must reveal all the cards before you can continue!"
             );
@@ -172,14 +168,11 @@ function DialogBox({
     }, 1500);
   }, []);
 
-  const scrollToBottom = () => {
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  };
-
-  useLayoutEffect(() => {
-      scrollToBottom();
   }, [scrollRef?.current?.scrollHeight]);
 
   const loadingDots = [1, 2, 3];
@@ -189,9 +182,9 @@ function DialogBox({
       {hideAll ? null : hideDialog || isLoading ? (
         <motion.div
           layoutId={"dialog-box"}
-          initial={{ width: "0%" }}
-          animate={{ width: "100%" }}
-          exit={{ width: "0%" }}
+          initial={{ y: "200%", width: "0%" }}
+          animate={{ y: "0%", width: "100%" }}
+          exit={{ y: "200%", width: "0%" }}
           transition={{ duration: 1, type: "spring" }}
           className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
         >
@@ -207,12 +200,13 @@ function DialogBox({
       ) : (
         <motion.div
           layoutId={"dialog-box"}
-          className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
-          transition={{ duration: 1, type: "spring" }}
+          className="relative flex flex-col flex-1 w-[100%] h-[64] items-center opacity-[90%]"
+          transition={{ delay:2, duration: 1, type: "spring" }}
         >
           <div className="dialog-background flex flex-col justify-between h-64 w-[100%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6">
-            <div ref={scrollRef} className=" p-8 overflow-y-scroll">
+            <div ref={scrollRef} className="flex px-8 pt-8 pb-16 overflow-y-auto">
             <TypingText
+              ref={scrollRef}
               text={dialogStates?.[stateIndex]?.body}
               delay={1000}
               skip={skip}
@@ -220,7 +214,7 @@ function DialogBox({
             />
             </div>
             <AnimatePresence>
-              {skip || typingComplete && 
+              {(skip || typingComplete) && 
                 <motion.div 
                   initial={{ opacity: 0, y: "100%" }}
                   animate={{ opacity: 1, y: "0%" }}
@@ -228,7 +222,7 @@ function DialogBox({
                   className="flex flex-row items-center border-t-[2px] border-brown_01 justify-end bg-[#FFFFFF00] p-2 text-brown_02 font-sans"
                   transition={{ duration: 2, type: "spring" }}
                 >
-                {errorText && <div className="font-sans mr-4">{errorText}</div>}
+                {true && <div className="font-sans mr-4">{errorText}</div>}
                 <DialogButton id={"dialogButton"} loading={isLoading}>
                   {dialogStates?.[stateIndex]?.label}
                 </DialogButton>

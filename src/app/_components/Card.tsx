@@ -119,9 +119,9 @@ export default function Card(props: Props) {
             {!reveal && (
                 <motion.div
                   initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { type: "spring", duration: 1 } }}
-                className="absolute inset-0"
+                  className="absolute inset-0"
               >
                 <Image
                   fill

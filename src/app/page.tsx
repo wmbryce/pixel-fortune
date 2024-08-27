@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import "./globals.css";
+import "./styles/global.css";
 import { redirect } from "next/navigation";
 
 export default function Home() {
