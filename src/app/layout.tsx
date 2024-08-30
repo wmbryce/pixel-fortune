@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./styles/global.css";
@@ -19,6 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <Link rel="preload" href="https://fonts.gstatic.com/s/pixelifysans/v1/CHy2V-3HFOL-1YeE6OLsK6zCxw.woff2" as="font" type="font/woff2" />
+      </head>
       <body className={inter.className}>
         <Provider>{children}</Provider>
       </body>
