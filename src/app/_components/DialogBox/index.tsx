@@ -1,14 +1,21 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useRef, useLayoutEffect, Dispatch, SetStateAction } from "react";
-import { trpc } from "../../_trpc/client";
-import { DialogButton } from "../DialogButton";
-import "./background.css";
-import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from "./data";
-import TypingText from "../TypingText";
-import { AnimatePresence, motion } from "framer-motion";
-import Card from "../Card";
-import { useRouter } from "next/navigation";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+  Dispatch,
+  SetStateAction,
+} from 'react';
+import { trpc } from '../../_trpc/client';
+import { DialogButton } from '../DialogButton';
+import './background.css';
+import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from './data';
+import TypingText from '../TypingText';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { cn } from '../../_libs/utils';
 
 type tableStateType = {
   label: string;
@@ -37,7 +44,6 @@ function DialogBox({
 }: Props) {
   const [skip, setSkip] = useState<any>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
-  const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState<null | string>(null);
   const [hideAll, setHideAll] = useState(true);
   const [hideDialog, setHideDialog] = useState(true);
@@ -52,9 +58,9 @@ function DialogBox({
     data,
     variables,
   } = trpc.getFortune.useMutation({
-    onSettled: (data) => {
+    onSettled: data => {
       let textArray: string[] = [];
-      if (typeof data === "string") {
+      if (typeof data === 'string') {
         textArray = data?.split(/\n\s*\n+/);
       }
       setDialogStates(generateTableStates(textArray));
@@ -64,16 +70,17 @@ function DialogBox({
 
   const startState = [
     {
-      label: "Draw Hand",
+      label: 'Draw Hand',
       body: WELCOME_MESSAGE,
       action: () => {
         setFetchHand(true);
+        setDialogStates([]);
         // setStateIndex(1);
       },
     },
   ];
   const reveal = {
-    label: "Continue",
+    label: 'Continue',
     body: REVEAL_MESSAGE,
     action: () => {
       setStateIndex(1);
@@ -81,13 +88,18 @@ function DialogBox({
     },
   };
 
-  const [dialogStates, setDialogStates] =
-    useState<tableStateType[]>(startState);
+  const [dialogStates, setDialogStates] = useState<tableStateType[]>([]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setDialogStates(startState);
+    }, 1000);
+  }, []);
 
   const generateTableStates = (textArray: string[]): tableStateType[] => {
     const mid = textArray.map((text, index) => {
       return {
-        label: "Continue",
+        label: 'Continue',
         body: text,
         action: () => {
           setStateIndex(index + 2);
@@ -96,13 +108,13 @@ function DialogBox({
     });
     const tail = [
       {
-        label: "Complete",
+        label: 'Complete',
         body: RESET_MESSAGE,
         action: () => {
           setDialogStates(startState);
           setStateIndex(0);
           resetData();
-          router.push("/welcome");
+          router.push('/welcome');
         },
       },
     ];
@@ -114,21 +126,23 @@ function DialogBox({
     if (tarotHand.length === 5) {
       fetchFortune(tarotHand);
       setFetchHand(false);
-      setDialogStates([reveal]);
+      setTimeout(() => {
+        setDialogStates([reveal]);
+      }, 2200);
     }
   }, [tarotHand]);
 
   useEffect(() => {
-    const dialogButton = document.getElementById("dialogButton");
+    const dialogButton = document.getElementById('dialogButton');
     const nextKeyPress = () => {
-      if (!isLoading && !hideAll && !hideDialog) {
+      if (!isLoading) {
         if (!skip && !typingComplete) {
           setSkip(true);
           setErrorText(null);
         } else {
           if (!allRevealed && tarotHand.length === 5) {
             setErrorText(
-              "You must reveal all the cards before you can continue!"
+              'You must reveal all the cards before you can continue!'
             );
           } else {
             dialogStates?.[stateIndex]?.action();
@@ -138,11 +152,11 @@ function DialogBox({
         }
       }
     };
-    window.addEventListener("keydown", nextKeyPress);
-    dialogButton?.addEventListener("click", nextKeyPress);
+    window.addEventListener('keydown', nextKeyPress);
+    dialogButton?.addEventListener('click', nextKeyPress);
     return () => {
-      window.removeEventListener("keydown", nextKeyPress);
-      dialogButton?.removeEventListener("click", nextKeyPress);
+      window.removeEventListener('keydown', nextKeyPress);
+      dialogButton?.removeEventListener('click', nextKeyPress);
     };
   }, [
     stateIndex,
@@ -157,13 +171,9 @@ function DialogBox({
 
   useEffect(() => {
     setTimeout(() => {
-      setHideAll(false);
-    }, 500);
-    setTimeout(() => {
       setHideDialog(false);
     }, 1500);
-  }, []);
-
+  }, [isLoading]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -171,62 +181,83 @@ function DialogBox({
     }
   }, [scrollRef?.current?.scrollHeight]);
 
-  const loadingDots = [1, 2, 3];
+  const dialogVariants = {
+    hidden: { y: '200%', height: '64px' },
+    loading: {
+      y: '0%',
+      height: '64px',
+      transition: {
+        y: {
+          duration: 1,
+          type: 'spring',
+        },
+      },
+    },
+    visible: {
+      y: '0%',
+      height: '256px', // equivalent to h-64
+      transition: {
+        height: {
+          duration: 1,
+          type: 'spring',
+        },
+        y: {
+          duration: 1,
+          type: 'spring',
+        },
+      },
+    },
+  };
 
   return (
-    <AnimatePresence>
-      {hideAll ? null : hideDialog || isLoading ? (
-        <motion.div
-          layoutId={"dialog-box"}
-          initial={{ y: "200%", width: "0%" }}
-          animate={{ y: "0%", width: "100%" }}
-          exit={{ y: "200%", width: "0%" }}
-          transition={{ duration: 1, type: "spring" }}
-          className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
-        >
-          <div className="dialog-background flex flex-col h-[50px] w-[100%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-scroll rounded-md my-6">
-            {isLoading && (
-              <motion.div
-                className="mx-[50%] my-[5px] h-[20px] w-[20px] bg-brown_01"
-                animate={{ scale: [1, 1.5, 1] }}
-                transition={{ repeat: Infinity, type: "spring", duration: 1 }}
-              />)}
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          layoutId={"dialog-box"}
-          className="relative flex flex-col flex-1 w-[100%] h-[64] items-center opacity-[90%]"
-          transition={{ delay:2, duration: 1, type: "spring" }}
-        >
-          <div className="dialog-background flex flex-col justify-between h-64 w-[100%] border bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6">
-            <div ref={scrollRef} className="flex px-8 pt-8 pb-16 overflow-y-auto">
-            <TypingText
+    <AnimatePresence mode="popLayout">
+      <motion.div
+        layoutId={'dialog-box'}
+        className={cn(
+          'relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]'
+        )}
+      >
+        <AnimatePresence>
+          <motion.div
+            className="dialog-background flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
+            variants={dialogVariants}
+            initial="hidden"
+            animate={dialogStates?.length === 0 ? 'loading' : 'visible'}
+            exit="hidden"
+          >
+            <div
               ref={scrollRef}
-              text={dialogStates?.[stateIndex]?.body}
-              delay={1000}
-              skip={skip}
-              setTypingComplete={setTypingComplete}
-            />
+              className="flex px-8 pt-8 pb-16 overflow-y-auto"
+            >
+              <TypingText
+                ref={scrollRef}
+                text={dialogStates?.[stateIndex]?.body ?? ''}
+                delay={1000}
+                skip={skip}
+                setTypingComplete={setTypingComplete}
+              />
             </div>
             <AnimatePresence>
-              {(skip || typingComplete) && 
-                <motion.div 
-                  initial={{ opacity: 0, y: "100%" }}
-                  animate={{ opacity: 1, y: "0%" }}
-                  exit={{ opacity: 0, y: "100%" }}
+              {(skip || typingComplete) && (
+                <motion.div
+                  initial={{ opacity: 0, y: '100%' }}
+                  animate={{ opacity: 1, y: '0%' }}
+                  exit={{ opacity: 0, y: '100%' }}
                   className="flex flex-row items-center border-t-[2px] border-brown_01 justify-end bg-[#FFFFFF00] p-2 text-brown_02 font-sans"
-                  transition={{ duration: 2, type: "spring" }}
+                  transition={{ duration: 2, type: 'spring' }}
                 >
-                {true && <div className="font-sans mr-4">{errorText}</div>}
-                <DialogButton id={"dialogButton"} loading={isLoading}>
-                  {dialogStates?.[stateIndex]?.label}
-                </DialogButton>
-              </motion.div>}
+                  {!!errorText && (
+                    <p className="font-sans mr-4 text-brown_03">{'test'}</p>
+                  )}
+                  <DialogButton id={'dialogButton'} loading={isLoading}>
+                    {dialogStates?.[stateIndex]?.label}
+                  </DialogButton>
+                </motion.div>
+              )}
             </AnimatePresence>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
     </AnimatePresence>
   );
 }
