@@ -4,7 +4,7 @@ import { trpc } from "../_trpc/client";
 import Card from "./Card";
 import { useEffect, useState } from "react";
 import { AnimatePresence, animate, motion, stagger } from "framer-motion";
-import { randomInt } from "crypto";
+import { cn } from '../_libs/utils'
 
 type Props = {
   tarotHand?: CardType[];
@@ -54,8 +54,9 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   };
 
   return (
-    <motion.ul layout className="flex flex-wrap my-[30px] flex-1">
-      <div className="flex flex-wrap flex-1 justify-center">
+    <motion.ul layout className="my-[30px]">
+      <div
+        className={cn("flex flex-row w-full ml-auto mr-auto lg:justify-center overflow-x-auto")}>
         <AnimatePresence>
           {tarotHand
             ?.slice(0, visibleCards)
@@ -81,6 +82,6 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
             ))}
         </AnimatePresence>
       </div>
-    </motion.ul>
+    </motion.ul >
   );
 }
