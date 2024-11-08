@@ -11,8 +11,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
 
 @font-face {
-  font-family: "Peepo";
-  src: url("/fonts/Peepo.ttf") format("ttf");
+  font-family: 'Peepo';
+  src: url('/fonts/Peepo.ttf') format('ttf');
   /* You can include additional font formats (e.g., 'ttf', 'eot', 'svg') if needed */
   /* src: url('/custom-font.woff') format('woff'),
          url('/custom-font.ttf') format('truetype'); */

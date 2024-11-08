@@ -1,11 +1,12 @@
-"use client";
-import { useEffect, useState } from "react";
-import CardTable from "../_components/CardTable";
+'use client';
+import { useEffect, useState } from 'react';
+import CardTable from '../_components/CardTable';
 // import Welcome from "../_components/Welcome";
-import DialogBox from "../_components/DialogBox";
+import DialogBox from '../_components/DialogBox';
 // import PageHeader from "../_components/PageHeader";
-import { trpc } from "../_trpc/client";
-import { CardType } from "@/types";
+import { trpc } from '../_trpc/client';
+import Provider from '../_trpc/Provider';
+import { CardType } from '@/types';
 
 export default function Home() {
   const [fetchHand, setFetchHand] = useState<boolean>(false);
@@ -14,10 +15,10 @@ export default function Home() {
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
   const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
-  console.log("All Revealed: ", allRevealed);
+  console.log('All Revealed: ', allRevealed);
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
-    onSuccess: (data) => {
+    onSuccess: data => {
       setTarotHand(data);
       setFetchHand(false);
       setAllRevealed(false);

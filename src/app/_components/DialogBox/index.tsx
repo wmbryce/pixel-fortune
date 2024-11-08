@@ -232,7 +232,7 @@ function DialogBox({
               <TypingText
                 ref={scrollRef}
                 text={dialogStates?.[stateIndex]?.body ?? ''}
-                delay={1000}
+                delay={1600}
                 skip={skip}
                 setTypingComplete={setTypingComplete}
               />
@@ -247,7 +247,7 @@ function DialogBox({
                   transition={{ duration: 2, type: 'spring' }}
                 >
                   {!!errorText && (
-                    <p className="font-sans mr-4 text-brown_03">{'test'}</p>
+                    <p className="font-sans mr-4 text-brown_03">{errorText}</p>
                   )}
                   <DialogButton id={'dialogButton'} loading={isLoading}>
                     {dialogStates?.[stateIndex]?.label}

@@ -1,38 +1,39 @@
-"use client";
-import { useEffect, useState, useCallback } from "react";
-import "../styles/global.css";
-import Welcome from "../_components/Welcome";
-import { redirect } from "next/navigation";
-import { useRouter } from "next/navigation";
+'use client';
+import { useEffect, useCallback } from 'react';
+import '../styles/global.css';
+import Welcome from '../_components/Welcome';
+import { useRouter } from 'next/navigation';
 
 export default function WelcomePage() {
-  const [showProceed, setShowProceed] = useState(true);
   const router = useRouter();
 
-  const staggerDelay = 0.1;
-  const stageDuration = 0.01;
-
   const handleNavigation = useCallback(() => {
-    console.log("Navigating to tarot page");
-    router.push("/tarot");
+    console.log('Navigating to tarot page');
+    router.push('/tarot');
   }, [router]);
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    handleNavigation();
-  }, [handleNavigation]);
+  const handleKeyPress = useCallback(
+    (event: KeyboardEvent) => {
+      handleNavigation();
+    },
+    [handleNavigation]
+  );
 
-  const handleTouch = useCallback((event: TouchEvent) => {
-    event.preventDefault();
-    handleNavigation();
-  }, [handleNavigation]);
+  const handleTouch = useCallback(
+    (event: TouchEvent) => {
+      event.preventDefault();
+      handleNavigation();
+    },
+    [handleNavigation]
+  );
 
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyPress);
-    window.addEventListener("touchstart", handleTouch);
+    window.addEventListener('keydown', handleKeyPress);
+    window.addEventListener('touchstart', handleTouch);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyPress);
-      window.removeEventListener("touchstart", handleTouch);
+      window.removeEventListener('keydown', handleKeyPress);
+      window.removeEventListener('touchstart', handleTouch);
     };
   }, [handleKeyPress, handleTouch]);
 
