@@ -46,7 +46,7 @@ html,
   -o-tab-size: 4;
      tab-size: 4;
   /* 3 */
-  font-family: Pixelify Sans;
+  font-family: var(--font-pixelify);
   /* 4 */
   font-feature-settings: normal;
   /* 5 */
@@ -602,32 +602,32 @@ video {
   margin: 1rem;
 }
 
-.mx-\[50\%\] {
-  margin-left: 50%;
-  margin-right: 50%;
-}
-
-.my-6 {
-  margin-top: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
 .my-\[30px\] {
   margin-top: 30px;
   margin-bottom: 30px;
 }
 
-.my-\[5px\] {
-  margin-top: 5px;
-  margin-bottom: 5px;
+.ml-auto {
+  margin-left: auto;
 }
 
 .mr-4 {
   margin-right: 1rem;
 }
 
+.mr-auto {
+  margin-right: auto;
+}
+
 .mt-6 {
   margin-top: 1.5rem;
+}
+
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
 .flex {
@@ -648,10 +648,6 @@ video {
 
 .h-8 {
   height: 2rem;
-}
-
-.h-\[20px\] {
-  height: 20px;
 }
 
 .h-\[50px\] {
@@ -688,10 +684,6 @@ video {
 
 .w-\[200px\] {
   width: 200px;
-}
-
-.w-\[20px\] {
-  width: 20px;
 }
 
 .w-\[8px\] {
@@ -746,10 +738,6 @@ video {
   flex-direction: column;
 }
 
-.flex-wrap {
-  flex-wrap: wrap;
-}
-
 .items-center {
   align-items: center;
 }
@@ -770,6 +758,14 @@ video {
   overflow: scroll;
 }
 
+.overflow-x-auto {
+  overflow-x: auto;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
 .overflow-y-scroll {
   overflow-y: scroll;
 }
@@ -782,12 +778,12 @@ video {
   border-radius: 0.125rem;
 }
 
-.border {
-  border-width: 1px;
-}
-
 .border-8 {
   border-width: 8px;
+}
+
+.border-t-\[2px\] {
+  border-top-width: 2px;
 }
 
 .border-brown_01 {
@@ -795,9 +791,8 @@ video {
   border-color: rgb(132 55 6 / var(--tw-border-opacity));
 }
 
-.bg-black {
-  --tw-bg-opacity: 1;
-  background-color: rgb(0 0 0 / var(--tw-bg-opacity));
+.bg-\[\#FFFFFF00\] {
+  background-color: #FFFFFF00;
 }
 
 .bg-black_01 {
@@ -813,10 +808,6 @@ video {
 .bg-brown_02 {
   --tw-bg-opacity: 1;
   background-color: rgb(251 192 112 / var(--tw-bg-opacity));
-}
-
-.bg-brown_025 {
-  background-color: #FBC070F0;
 }
 
 .bg-brown_04 {
@@ -850,10 +841,6 @@ video {
   padding: 1rem;
 }
 
-.p-8 {
-  padding: 2rem;
-}
-
 .px-24 {
   padding-left: 6rem;
   padding-right: 6rem;
@@ -869,17 +856,30 @@ video {
   padding-right: 2rem;
 }
 
+.pb-16 {
+  padding-bottom: 4rem;
+}
+
+.pt-8 {
+  padding-top: 2rem;
+}
+
 .text-center {
   text-align: center;
 }
 
 .font-sans {
-  font-family: Pixelify Sans;
+  font-family: var(--font-pixelify);
 }
 
 .text-9xl {
   font-size: 8rem;
   line-height: 1;
+}
+
+.text-base {
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 
 .text-sm {
@@ -928,23 +928,6 @@ video {
   --background-end-rgb: 255, 255, 255;
 }
 
-@font-face {
-  font-family: "Peepo";
-
-  src: url("/fonts/Peepo.ttf") format("ttf");
-
-  /* You can include additional font formats (e.g., 'ttf', 'eot', 'svg') if needed */
-
-  /* src: url('/custom-font.woff') format('woff'),
-         url('/custom-font.ttf') format('truetype'); */
-
-  /* Add other font properties as needed (e.g., font-weight, font-style) */
-
-  font-weight: normal;
-
-  font-style: normal;
-}
-
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
@@ -961,6 +944,12 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+}
+
+.pixelify-sans {
+  font-family: 'Pixelify Sans', serif;
+  font-optical-sizing: auto;
+  font-style: normal;
 }
 
 .hover\:opacity-80:hover {
@@ -1024,6 +1013,10 @@ body {
   .lg\:mx-16 {
     margin-left: 4rem;
     margin-right: 4rem;
+  }
+
+  .lg\:justify-center {
+    justify-content: center;
   }
 
   .lg\:px-\[200px\] {

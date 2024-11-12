@@ -8,19 +8,6 @@
   --background-end-rgb: 255, 255, 255;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap');
-
-@font-face {
-  font-family: 'Peepo';
-  src: url('/fonts/Peepo.ttf') format('ttf');
-  /* You can include additional font formats (e.g., 'ttf', 'eot', 'svg') if needed */
-  /* src: url('/custom-font.woff') format('woff'),
-         url('/custom-font.ttf') format('truetype'); */
-  /* Add other font properties as needed (e.g., font-weight, font-style) */
-  font-weight: normal;
-  font-style: normal;
-}
-
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
@@ -37,4 +24,10 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+}
+
+.pixelify-sans {
+  font-family: 'Pixelify Sans', serif;
+  font-optical-sizing: auto;
+  font-style: normal;
 }

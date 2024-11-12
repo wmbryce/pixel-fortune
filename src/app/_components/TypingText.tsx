@@ -67,7 +67,7 @@ export const TypingText = React.forwardRef(
     };
 
     return (
-      <p className={'font-sans'}>
+      <p className={'font-pixel text-base'}>
         {text.substring(startIndex, currentIndex) + '                   '}
       </p>
     );
