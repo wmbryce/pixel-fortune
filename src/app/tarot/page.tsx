@@ -15,7 +15,7 @@ export default function Home() {
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
   const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
-  console.log('All Revealed: ', allRevealed);
+  // console.log('All Revealed: ', allRevealed);
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
     onSuccess: data => {
@@ -38,7 +38,7 @@ export default function Home() {
   return (
     <main className="justify-between">
       <CardTable tarotHand={tarotHand} setAllRevealed={setAllRevealed} />
-      <div className="absolute bottom-8 left-0 w-[100%] px-6 lg:px-[200px] flex flex-1">
+      <div className="absolute bottom-4 left-0 w-[100%] px-6 lg:px-[200px] flex flex-1">
         {showDialogBox && (
           <DialogBox
             allRevealed={allRevealed}

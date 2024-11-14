@@ -1,10 +1,10 @@
-"use client";
-import { CardType } from "@/types";
-import { trpc } from "../_trpc/client";
-import Card from "./Card";
-import { useEffect, useState } from "react";
-import { AnimatePresence, animate, motion, stagger } from "framer-motion";
-import { cn } from '../_libs/utils'
+'use client';
+import { CardType } from '@/types';
+import { trpc } from '../_trpc/client';
+import Card from './Card';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, animate, motion, stagger } from 'framer-motion';
+import { cn } from '../_libs/utils';
 
 type Props = {
   tarotHand?: CardType[];
@@ -42,12 +42,8 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     }
   }, [revealedCards, setAllRevealed]);
 
-  useEffect(() => {
-    console.log("start animation");
-  }, [tarotHand]);
-
   const UpdateRevealCard = (index: number) => {
-    console.log("update reveal card: ", index);
+    // console.log("update reveal card: ", index);
     const newRevealedCards = [...revealedCards];
     newRevealedCards[index] = true;
     setRevealedCards(newRevealedCards);
@@ -56,23 +52,26 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   return (
     <motion.ul layout className="my-[30px]">
       <div
-        className={cn("flex flex-row w-full ml-auto mr-auto lg:justify-center overflow-x-auto")}>
+        className={cn(
+          'flex flex-row w-full ml-auto mr-auto lg:justify-center overflow-x-auto'
+        )}
+      >
         <AnimatePresence>
           {tarotHand
             ?.slice(0, visibleCards)
             .map((data: CardType, index: number) => (
               <motion.li
                 key={index}
-                layoutId={"card-" + index}
+                layoutId={'card-' + index}
                 className="relative"
                 initial={{ y: -500 }}
                 animate={{
                   y: 0,
-                  transition: { type: "spring", duration: "1" },
+                  transition: { type: 'spring', duration: '1' },
                 }}
               >
                 <Card
-                  id={"t-card-" + index}
+                  id={'t-card-' + index}
                   index={index}
                   reveal={revealedCards?.[index]}
                   setReveal={UpdateRevealCard}
@@ -82,6 +81,6 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
             ))}
         </AnimatePresence>
       </div>
-    </motion.ul >
+    </motion.ul>
   );
 }

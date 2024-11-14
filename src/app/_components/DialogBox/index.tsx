@@ -232,7 +232,7 @@ function DialogBox({
               <TypingText
                 ref={scrollRef}
                 text={dialogStates?.[stateIndex]?.body ?? ''}
-                delay={1600}
+                delay={stateIndex === 0 || stateIndex === 1 ? 1600 : 200}
                 skip={skip}
                 setTypingComplete={setTypingComplete}
               />

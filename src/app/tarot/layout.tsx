@@ -1,9 +1,9 @@
-"use client";
-import { ReactNode, useState } from "react";
-import PageHeader from "../_components/PageHeader";
-import { trpc } from "../_trpc/client";
-import { url } from "inspector";
-import "./background.css";
+'use client';
+import { ReactNode, useState } from 'react';
+import PageHeader from '../_components/PageHeader';
+import { trpc } from '../_trpc/client';
+import { url } from 'inspector';
+import './background.css';
 
 type Props = {
   children: ReactNode;
