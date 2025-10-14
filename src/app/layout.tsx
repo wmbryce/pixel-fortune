@@ -6,7 +6,7 @@ import Provider from './_trpc/Provider';
 
 export const metadata: Metadata = {
   title: 'Pixel Fortune',
-  description: 'May you be lucky and Prosperuse',
+  description: 'May you be lucky and prosper',
 };
 
 const pixelify = Pixelify_Sans({

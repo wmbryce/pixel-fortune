@@ -1,11 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import CardTable from '../_components/CardTable';
-// import Welcome from "../_components/Welcome";
 import DialogBox from '../_components/DialogBox';
-// import PageHeader from "../_components/PageHeader";
 import { trpc } from '../_trpc/client';
-import Provider from '../_trpc/Provider';
 import { CardType } from '@/types';
 
 export default function Home() {
