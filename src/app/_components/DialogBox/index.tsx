@@ -54,7 +54,7 @@ function DialogBox({
 
   const {
     mutate: fetchFortune,
-    isLoading,
+    isPending,
     data,
     variables,
   } = trpc.getFortune.useMutation({
@@ -135,7 +135,7 @@ function DialogBox({
   useEffect(() => {
     const dialogButton = document.getElementById('dialogButton');
     const nextKeyPress = () => {
-      if (!isLoading) {
+      if (!isPending) {
         if (!skip && !typingComplete) {
           setSkip(true);
           setErrorText(null);
@@ -164,7 +164,7 @@ function DialogBox({
     dialogStates,
     typingComplete,
     hideAll,
-    isLoading,
+    isPending,
     hideDialog,
     allRevealed,
   ]);
@@ -173,7 +173,7 @@ function DialogBox({
     setTimeout(() => {
       setHideDialog(false);
     }, 1500);
-  }, [isLoading]);
+  }, [isPending]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -249,7 +249,7 @@ function DialogBox({
                   {!!errorText && (
                     <p className="font-sans mr-4 text-brown_03">{errorText}</p>
                   )}
-                  <DialogButton id={'dialogButton'} loading={isLoading}>
+                  <DialogButton id={'dialogButton'} loading={isPending}>
                     {dialogStates?.[stateIndex]?.label}
                   </DialogButton>
                 </motion.div>

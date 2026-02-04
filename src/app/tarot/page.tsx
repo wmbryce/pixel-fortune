@@ -15,12 +15,15 @@ export default function Home() {
   // console.log('All Revealed: ', allRevealed);
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
-    onSuccess: data => {
-      setTarotHand(data);
+  });
+
+  useEffect(() => {
+    if (getTarotHand.data && fetchHand) {
+      setTarotHand(getTarotHand.data);
       setFetchHand(false);
       setAllRevealed(false);
-    },
-  });
+    }
+  }, [getTarotHand.data, fetchHand]);
 
   const resetData = () => {
     setTarotHand([]);
