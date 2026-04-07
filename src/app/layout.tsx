@@ -1,7 +1,6 @@
 import { Pixelify_Sans, Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import './styles/global.css';
-import './styles/output.css';
 import Provider from './_trpc/Provider';
 
 export const metadata: Metadata = {

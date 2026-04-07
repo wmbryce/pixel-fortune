@@ -15,22 +15,23 @@ import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from './data';
 import TypingText from '../TypingText';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { CardType } from '@/types';
 import { cn } from '../../_libs/utils';
 
 type tableStateType = {
   label: string;
   body: string;
-  action: any;
+  action: () => void;
 };
 
 type Props = {
-  tarotHand: any;
+  tarotHand: CardType[];
   allRevealed: boolean;
   fetchHand: boolean;
   setFetchHand: Dispatch<SetStateAction<boolean>>;
-  resetData: any;
+  resetData: () => void;
   stateIndex: number;
-  setStateIndex: any;
+  setStateIndex: Dispatch<SetStateAction<number>>;
 };
 
 function DialogBox({
@@ -42,13 +43,13 @@ function DialogBox({
   stateIndex,
   setStateIndex,
 }: Props) {
-  const [skip, setSkip] = useState<any>(false);
+  const [skip, setSkip] = useState<boolean>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
   const [errorText, setErrorText] = useState<null | string>(null);
   const [hideAll, setHideAll] = useState(true);
   const [hideDialog, setHideDialog] = useState(true);
 
-  const scrollRef = useRef<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const router = useRouter();
 
@@ -64,7 +65,6 @@ function DialogBox({
         textArray = data?.split(/\n\s*\n+/);
       }
       setDialogStates(generateTableStates(textArray));
-      // setStateIndex(0);
     },
   });
 
@@ -75,7 +75,6 @@ function DialogBox({
       action: () => {
         setFetchHand(true);
         setDialogStates([]);
-        // setStateIndex(1);
       },
     },
   ];
@@ -84,7 +83,6 @@ function DialogBox({
     body: REVEAL_MESSAGE,
     action: () => {
       setStateIndex(1);
-      // setStateIndex(1);
     },
   };
 

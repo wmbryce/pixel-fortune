@@ -2,12 +2,11 @@
 import { CardType } from "@/types";
 import { trpc } from "../_trpc/client";
 import Image from "next/image";
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { cn } from '../_libs/utils'
 import {
   motion,
   animate,
-  stagger,
   HTMLMotionProps,
   AnimatePresence,
 } from "framer-motion";
@@ -33,9 +32,6 @@ export default function Card(props: Props) {
   const transit = {
     duration: stageDuration,
     type: "spring",
-    // damping: 4,
-    // mass: 0.9,
-    // stiffness: 1000,
   };
 
   const revealCard = () => {
@@ -49,7 +45,6 @@ export default function Card(props: Props) {
             { y: 10 },
             {
               ...transit,
-              // delay: stagger(staggerDelay, { ease: (p) => Math.sin(p) }),
             },
           ],
           [
@@ -57,7 +52,6 @@ export default function Card(props: Props) {
             { y: 0 },
             {
               ...transit,
-              // delay: stagger(staggerDelay, { ease: (p) => Math.sin(p) }),
             },
           ],
           [
@@ -74,8 +68,6 @@ export default function Card(props: Props) {
         {
           repeat: 0,
           delay: 0,
-          // type: "spring",
-          // stiffness: 1000,
         }
       );
     }
@@ -102,7 +94,6 @@ export default function Card(props: Props) {
       <motion.div
         id={props?.id}
         whileHover={{ y: -10, transition: { ...transit } }}
-        // className="relative md:h-[25rem] sm:w-[9rem] md:w-[15rem] lg: w-[15rem] p-4 m-4 bg-white br-4  align-center justify-center rounded-md z-50"
         onClick={revealCard}
         ref={cardRef}
         className={cn("relative bg-white rounded-md w-full h-full p-2", props?.className)}
