@@ -3,9 +3,16 @@ import { createTarotDeck } from "./deck";
 import OpenAI from "openai";
 import { mockResponse } from "../data/mock-response";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI;
+
+function getOpenAIClient() {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openai;
+}
 
 const generateFortunePrompt = (tarotHand: CardType[]) => {
   const cardString = tarotHand
@@ -45,7 +52,7 @@ export const generateFortune = async (tarotHand?: CardType[]) => {
 
     console.log("prompt: ", prompt);
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "gpt-3.5-turbo-16k",
     });
