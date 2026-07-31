@@ -12,7 +12,6 @@ export default function Home() {
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
   const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
-  // console.log('All Revealed: ', allRevealed);
   const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
     enabled: fetchHand,
   });

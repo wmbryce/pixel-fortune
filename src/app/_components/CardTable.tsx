@@ -1,9 +1,8 @@
 'use client';
 import { CardType } from '@/types';
-import { trpc } from '../_trpc/client';
 import Card from './Card';
 import { useEffect, useState } from 'react';
-import { AnimatePresence, animate, motion, stagger } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '../_libs/utils';
 
 type Props = {
@@ -13,7 +12,6 @@ type Props = {
 
 export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const [visibleCards, setVisibleCards] = useState<number>(-1);
-  const emptyArray = [null, null, null, null, null];
 
   const [revealedCards, setRevealedCards] = useState([
     false,
@@ -43,7 +41,6 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   }, [revealedCards, setAllRevealed]);
 
   const UpdateRevealCard = (index: number) => {
-    // console.log("update reveal card: ", index);
     const newRevealedCards = [...revealedCards];
     newRevealedCards[index] = true;
     setRevealedCards(newRevealedCards);

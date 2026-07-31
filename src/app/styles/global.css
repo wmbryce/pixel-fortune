@@ -25,9 +25,3 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
-
-.pixelify-sans {
-  font-family: 'Pixelify Sans', serif;
-  font-optical-sizing: auto;
-  font-style: normal;
-}

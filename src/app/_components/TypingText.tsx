@@ -1,13 +1,6 @@
 'use client';
 
-import React, {
-  SetStateAction,
-  useMemo,
-  useEffect,
-  useState,
-  useRef,
-} from 'react';
-import { DialogButton } from './DialogButton';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 
 type Props = {
   ref: any;
@@ -33,10 +26,6 @@ export const TypingText = React.forwardRef(
       startIndex.current = 0;
       setTypingComplete(false);
     }, [text]);
-
-    useEffect(() => {}, [ref?.current?.scrollHeight]);
-
-    // console.log({ startIndex, currentIndex });
 
     useEffect(() => {
       const scrollToBottom = () => {
