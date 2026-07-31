@@ -8,7 +8,7 @@ import {
   animate,
   HTMLMotionProps,
   AnimatePresence,
-} from "framer-motion";
+} from "motion/react";
 
 interface Props extends HTMLMotionProps<"div"> {
   id: string;
@@ -30,44 +30,20 @@ export default function Card(props: Props) {
   const transit = {
     duration: stageDuration,
     type: "spring",
-  };
+  } as const;
 
   const revealCard = () => {
-    const targetId = "." + id;
     if (!reveal) {
       props.setReveal(props?.index);
-      animate(
+      animate([
+        [cardRef.current, { y: 10 }, { ...transit }],
+        [cardRef.current, { y: 0 }, { ...transit }],
         [
-          [
-            cardRef.current,
-            { y: 10 },
-            {
-              ...transit,
-            },
-          ],
-          [
-            cardRef.current,
-            { y: 0 },
-            {
-              ...transit,
-            },
-          ],
-          [
-            backgroundRef.current,
-            {
-              backgroundColor: "rgba(165, 42, 42, 0.7)",
-            },
-            {
-              backgroundColor: "rgba(165, 42, 42, 0.7)",
-              transition: { duration: 0.5 }
-            }
-          ],
+          backgroundRef.current,
+          { backgroundColor: "rgba(165, 42, 42, 0.7)" },
+          { duration: 0.5 },
         ],
-        {
-          repeat: 0,
-          delay: 0,
-        }
-      );
+      ]);
     }
   };
 
