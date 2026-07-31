@@ -1,9 +1,6 @@
-import React, { useEffect } from "react";
 import Image from "next/image";
 
-type Props = {};
-
-function Welcome({}: Props) {
+function Welcome() {
   return (
     <div className="relative w-full h-full">
     <Image

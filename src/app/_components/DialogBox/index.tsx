@@ -4,13 +4,11 @@ import React, {
   useState,
   useEffect,
   useRef,
-  useLayoutEffect,
   Dispatch,
   SetStateAction,
 } from 'react';
 import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
-import './background.css';
 import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from './data';
 import TypingText from '../TypingText';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -46,8 +44,6 @@ function DialogBox({
   const [skip, setSkip] = useState<boolean>(false);
   const [typingComplete, setTypingComplete] = useState<boolean>(false);
   const [errorText, setErrorText] = useState<null | string>(null);
-  const [hideAll, setHideAll] = useState(true);
-  const [hideDialog, setHideDialog] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -56,8 +52,6 @@ function DialogBox({
   const {
     mutate: fetchFortune,
     isPending,
-    data,
-    variables,
   } = trpc.getFortune.useMutation({
     onSettled: data => {
       let textArray: string[] = [];
@@ -156,22 +150,7 @@ function DialogBox({
       window.removeEventListener('keydown', nextKeyPress);
       dialogButton?.removeEventListener('click', nextKeyPress);
     };
-  }, [
-    stateIndex,
-    skip,
-    dialogStates,
-    typingComplete,
-    hideAll,
-    isPending,
-    hideDialog,
-    allRevealed,
-  ]);
-
-  useEffect(() => {
-    setTimeout(() => {
-      setHideDialog(false);
-    }, 1500);
-  }, [isPending]);
+  }, [stateIndex, skip, dialogStates, typingComplete, isPending, allRevealed]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -217,7 +196,7 @@ function DialogBox({
       >
         <AnimatePresence>
           <motion.div
-            className="dialog-background flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
+            className="flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
             variants={dialogVariants}
             initial="hidden"
             animate={dialogStates?.length === 0 ? 'loading' : 'visible'}

@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useCallback } from 'react';
-import '../styles/global.css';
 import Welcome from '../_components/Welcome';
 import { useRouter } from 'next/navigation';
 
@@ -8,16 +7,12 @@ export default function WelcomePage() {
   const router = useRouter();
 
   const handleNavigation = useCallback(() => {
-    console.log('Navigating to tarot page');
     router.push('/tarot');
   }, [router]);
 
-  const handleKeyPress = useCallback(
-    (event: KeyboardEvent) => {
-      handleNavigation();
-    },
-    [handleNavigation]
-  );
+  const handleKeyPress = useCallback(() => {
+    handleNavigation();
+  }, [handleNavigation]);
 
   const handleTouch = useCallback(
     (event: TouchEvent) => {

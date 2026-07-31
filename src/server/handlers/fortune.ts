@@ -1,7 +1,6 @@
 import { CardType } from "@/types";
 import { createTarotDeck } from "./deck";
 import OpenAI from "openai";
-import { mockResponse } from "../data/mock-response";
 
 let openai: OpenAI;
 
@@ -32,34 +31,13 @@ const generateFortunePrompt = (tarotHand: CardType[]) => {
   return prompt;
 };
 
-export const generateMockFortune = async (tarotHand?: CardType[]) => {
-  try {
-    await setTimeout(() => {}, 1000);
-    const mockFortune = mockResponse?.content;
-    return mockFortune;
-  } catch (error: any) {
-    throw error;
-  }
-};
-
 export const generateFortune = async (tarotHand?: CardType[]) => {
-  try {
-    if (!tarotHand) {
-      tarotHand = createTarotDeck().slice(0, 5);
-    }
+  const hand = tarotHand ?? createTarotDeck().slice(0, 5);
 
-    const prompt = generateFortunePrompt(tarotHand);
+  const response = await getOpenAIClient().chat.completions.create({
+    messages: [{ role: "user", content: generateFortunePrompt(hand) }],
+    model: "gpt-3.5-turbo-16k",
+  });
 
-    console.log("prompt: ", prompt);
-
-    const response = await getOpenAIClient().chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "gpt-3.5-turbo-16k",
-    });
-
-    const fortuneReading = response?.choices?.[0]?.message?.content;
-    return fortuneReading;
-  } catch (error: any) {
-    throw error;
-  }
+  return response?.choices?.[0]?.message?.content;
 };

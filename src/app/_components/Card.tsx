@@ -1,8 +1,7 @@
 "use client";
 import { CardType } from "@/types";
-import { trpc } from "../_trpc/client";
 import Image from "next/image";
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { cn } from '../_libs/utils'
 import {
   motion,
@@ -20,7 +19,6 @@ interface Props extends HTMLMotionProps<"div"> {
 }
 
 export default function Card(props: Props) {
-  const [showCardFace, setShowCardFace] = useState<boolean>(false);
   const cardRef = useRef(null);
   const backgroundRef = useRef(null);
 
