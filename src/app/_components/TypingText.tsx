@@ -3,7 +3,6 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 
 type Props = {
-  ref: any;
   text: string;
   delay: number;
   skip: boolean;

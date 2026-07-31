@@ -2,7 +2,7 @@
 import { CardType } from '@/types';
 import Card from './Card';
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../_libs/utils';
 
 type Props = {
@@ -64,7 +64,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
                 initial={{ y: -500 }}
                 animate={{
                   y: 0,
-                  transition: { type: 'spring', duration: '1' },
+                  transition: { type: 'spring', duration: 1 },
                 }}
               >
                 <Card

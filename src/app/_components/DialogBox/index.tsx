@@ -11,7 +11,7 @@ import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
 import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from './data';
 import TypingText from '../TypingText';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { CardType } from '@/types';
 import { cn } from '../../_libs/utils';
@@ -184,7 +184,7 @@ function DialogBox({
         },
       },
     },
-  };
+  } as const;
 
   return (
     <AnimatePresence mode="popLayout">
