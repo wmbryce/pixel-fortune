@@ -32,13 +32,12 @@ export interface Store {
   /** Returns 1 when this caller removed the member, 0 when someone else already had. */
   zRem(key: string, member: string): Promise<number>;
   zRemRangeByScore(key: string, min: number, max: number): Promise<number>;
-  zRangeByScore(
-    key: string,
-    min: number,
-    max: number,
-    limit?: number
-  ): Promise<string[]>;
-  zCard(key: string): Promise<number>;
+  /**
+   * Position of a member in score order, or null when it is absent. Distinct
+   * per member even for identical scores, which is what lets concurrent callers
+   * each learn their own place in a bounded set rather than a shared total.
+   */
+  zRank(key: string, member: string): Promise<number | null>;
   rPush(key: string, value: string): Promise<number>;
   lTrim(key: string, start: number, stop: number): Promise<void>;
   lLen(key: string): Promise<number>;
@@ -83,10 +82,6 @@ function createRedisStore({
     const result = await send(command);
     return result === null || result === undefined ? null : String(result);
   };
-  const list = async (command: (string | number)[]) => {
-    const result = await send(command);
-    return Array.isArray(result) ? result.map(String) : [];
-  };
 
   return {
     kind: 'redis',
@@ -109,13 +104,10 @@ function createRedisStore({
     zRem: (key, member) => num(['ZREM', key, member]),
     zRemRangeByScore: (key, min, max) =>
       num(['ZREMRANGEBYSCORE', key, min, max]),
-    zRangeByScore: (key, min, max, limit) =>
-      list(
-        limit === undefined
-          ? ['ZRANGEBYSCORE', key, min, max]
-          : ['ZRANGEBYSCORE', key, min, max, 'LIMIT', 0, limit]
-      ),
-    zCard: key => num(['ZCARD', key]),
+    zRank: async (key, member) => {
+      const rank = await send(['ZRANK', key, member]);
+      return rank === null || rank === undefined ? null : Number(rank);
+    },
     rPush: (key, value) => num(['RPUSH', key, value]),
     lTrim: async (key, start, stop) => {
       await send(['LTRIM', key, start, stop]);
@@ -207,17 +199,15 @@ function createMemoryStore(): Store & { clear(): void } {
       }
       return removed;
     },
-    async zRangeByScore(key, min, max, limit) {
+    async zRank(key, member) {
       const set = liveZset(key);
-      if (!set) return [];
-      const members = [...set]
-        .filter(([, score]) => score >= min && score <= max)
-        .sort((a, b) => a[1] - b[1])
-        .map(([member]) => member);
-      return limit === undefined ? members : members.slice(0, limit);
-    },
-    async zCard(key) {
-      return liveZset(key)?.size ?? 0;
+      if (!set?.has(member)) return null;
+      // Redis breaks score ties lexicographically by member.
+      const ordered = [...set].sort(
+        ([aMember, aScore], [bMember, bScore]) =>
+          aScore - bScore || aMember.localeCompare(bMember)
+      );
+      return ordered.findIndex(([name]) => name === member);
     },
     async rPush(key, value) {
       const list = lists.get(key) ?? [];
@@ -254,8 +244,36 @@ export function getStore(): Store {
   return store;
 }
 
+export type StoreFailure = { scope: string; message: string; at: string };
+
+let lastFailure: StoreFailure | null = null;
+let failureCount = 0;
+
+/**
+ * Store failures are contained rather than shown to the visitor, so this is the
+ * only trace they leave. Without it a store that fails one command per request
+ * degrades every reading to the cold-start text while `/api/status` still
+ * reports the site as generating live — silent, total, and undiagnosable.
+ */
+export function noteStoreFailure(scope: string, error: unknown) {
+  failureCount += 1;
+  lastFailure = {
+    scope,
+    message: error instanceof Error ? error.message : String(error),
+    at: new Date().toISOString(),
+  };
+  console.error(`[pixel-fortune] store failure (${scope})`, error);
+}
+
+/** Per-instance, like the memory store — a log line is the durable record. */
+export function storeFailures(): { count: number; last: StoreFailure | null } {
+  return { count: failureCount, last: lastFailure };
+}
+
 /** Test seam: drops all in-memory state and re-resolves the backend. */
 export function resetStoreForTests() {
   memory.clear();
   store = null;
+  lastFailure = null;
+  failureCount = 0;
 }

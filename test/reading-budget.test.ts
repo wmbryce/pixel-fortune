@@ -21,7 +21,12 @@ import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
 import { config } from '@/server/config';
 import { TarotDeck } from '@/server/data/tarot-deck';
-import { getStore, resetStoreForTests, type Store } from '@/server/store';
+import {
+  getStore,
+  resetStoreForTests,
+  storeFailures,
+  type Store,
+} from '@/server/store';
 
 const PER_READING_USD = 0.01;
 
@@ -65,6 +70,9 @@ beforeEach(() => {
   vi.stubEnv('PF_RATE_VISITOR', '100');
   vi.stubEnv('PF_RATE_IP', '1000');
   resetStoreForTests();
+
+  // Swallowed store failures log; the specs that force one assert on this.
+  vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -153,6 +161,28 @@ describe('spend cap', () => {
     expect(status.spentMicros).toBe(0);
   });
 
+  it('reclaims a backlog of expired holds without per-hold commands', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
+
+    for (let i = 0; i < 25; i++) await dealHand(visitor(`ghost-${i}`));
+    expect((await budgetStatus()).spentMicros).toBe(25 * 10_000);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 5_000);
+
+    const store = getStore();
+    const zRem = vi.spyOn(store, 'zRem');
+    const zRemRange = vi.spyOn(store, 'zRemRangeByScore');
+
+    expect(await sweepExpiredHolds()).toBe(25);
+
+    expect((await budgetStatus()).spentMicros).toBe(0);
+    // One range delete per swept month, not one command per expired hold.
+    expect(zRem).not.toHaveBeenCalled();
+    expect(zRemRange.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
   it('never refunds the same expired hold twice', async () => {
     vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
     await dealHand(visitor('ghost-a'));
@@ -235,6 +265,18 @@ describe('concurrent holds', () => {
     expect(after.reading).not.toBe(COLD_START_READING);
   });
 
+  it('holds the bound exactly under a burst from one identity', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '2');
+
+    // Check-then-act would let all ten read the same cardinality and reserve,
+    // leaving the rate limit (100 per visitor here) as the only real bound.
+    const burst = visitor('burst');
+    await Promise.all(Array.from({ length: 10 }, () => dealHand(burst)));
+
+    expect((await budgetStatus()).spentMicros).toBe(2 * 10_000);
+  });
+
   it('defaults the hold TTL to ten minutes', () => {
     expect(config.holdTtlSeconds).toBe(600);
     expect(config.maxConcurrentHolds).toBe(2);
@@ -242,7 +284,7 @@ describe('concurrent holds', () => {
 });
 
 describe('store failures', () => {
-  it.each(['setEx', 'incrBy', 'zCard'] as const)(
+  it.each(['setEx', 'incrBy', 'zRank'] as const)(
     'still deals a hand when %s is unreachable',
     async method => {
       breakStore(method);
@@ -280,6 +322,65 @@ describe('store failures', () => {
     await resolveReading(dealt.token);
 
     expect((await budgetStatus()).spentMicros).toBe(10_000);
+  });
+
+  it('keeps a paid reading when releasing the identity slot fails', async () => {
+    const dealt = await dealHand(visitor('claimer'));
+
+    // The claim commits on the first ZREM; nothing after it may fail the caller.
+    const store = getStore();
+    const realZRem = store.zRem.bind(store);
+    vi.spyOn(store, 'zRem').mockImplementation((key, member) =>
+      key.startsWith('pf:holds:id:')
+        ? Promise.reject(new Error('redis ZREM failed: 503'))
+        : realZRem(key, member)
+    );
+
+    const text = await resolveReading(dealt.token);
+
+    expect(calls).toBe(1);
+    expect(text).toBe(reading(1));
+    expect((await budgetStatus()).spentMicros).toBe(10_000);
+    expect(storeFailures().last?.scope).toBe('claimReservation.identitySlot');
+  });
+});
+
+describe('store health', () => {
+  it('records and logs a swallowed store failure', async () => {
+    expect(storeFailures().count).toBe(0);
+
+    breakStore('setEx');
+    await dealHand(visitor('offline'));
+
+    expect(storeFailures().count).toBeGreaterThan(0);
+    expect(storeFailures().last?.scope).toBe('dealHand');
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('reports degraded rather than live once the store has failed', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    breakStore('setEx');
+    await dealHand(visitor('offline'));
+
+    const { GET } = await import('@/app/api/status/route');
+    const body = await (await GET()).json();
+
+    expect(body.mode).toBe('degraded');
+    expect(body.store.failures).toBeGreaterThan(0);
+    expect(body.store.lastFailure.scope).toBe('dealHand');
+  });
+
+  it('reports live and reachable while the store is healthy', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    await draw(visitor('healthy'));
+
+    const { GET } = await import('@/app/api/status/route');
+    const body = await (await GET()).json();
+
+    expect(body.mode).toBe('live');
+    expect(body.store.reachable).toBe(true);
+    expect(body.store.failures).toBe(0);
+    expect(body.readingsRemaining).toBeGreaterThan(0);
   });
 });
 

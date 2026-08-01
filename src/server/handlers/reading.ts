@@ -18,7 +18,7 @@
 import { randomUUID } from 'node:crypto';
 import { CardType } from '@/types';
 import { config } from '../config';
-import { getStore } from '../store';
+import { getStore, noteStoreFailure } from '../store';
 import {
   claimReservation,
   commitReading,
@@ -44,7 +44,13 @@ const holdKey = (token: string) => `pf:hold:${token}`;
 
 const drawHand = (): CardType[] => createTarotDeck().slice(0, 5);
 
-const ignoreStoreFailure = () => undefined;
+/**
+ * Contained, not ignored: the visitor's experience never depends on these, but
+ * `/api/status` and the server log have to show that the site is degrading.
+ */
+const containStoreFailure = (scope: string) => (error: unknown) => {
+  noteStoreFailure(scope, error);
+};
 
 export async function dealHand(visitor: Visitor): Promise<DealtHand> {
   const token = randomUUID();
@@ -68,12 +74,13 @@ export async function dealHand(visitor: Visitor): Promise<DealtHand> {
     );
 
     return { hand: hold.hand, token };
-  } catch {
+  } catch (error) {
     // The store is the only thing here that can fail, and a store that failed
     // holds no reservation, so nothing was spent. Deal locally rather than
     // reject: an unanswered deal leaves the dialog with no message and no
     // retry, whereas an unreadable hold resolves to the cold-start reading,
     // which names no cards and stays coherent against any spread.
+    noteStoreFailure('dealHand', error);
     return { hand: drawHand(), token };
   }
 }
@@ -96,7 +103,8 @@ export async function resolveReading(token: string): Promise<string> {
   let raw: string | null;
   try {
     raw = await getStore().get(holdKey(token));
-  } catch {
+  } catch (error) {
+    noteStoreFailure('resolveReading.readHold', error);
     return COLD_START_READING;
   }
   if (!raw) return COLD_START_READING;
@@ -118,7 +126,8 @@ export async function resolveReading(token: string): Promise<string> {
   let claimed: boolean;
   try {
     claimed = await claimReservation(reservation);
-  } catch {
+  } catch (error) {
+    noteStoreFailure('resolveReading.claim', error);
     return COLD_START_READING;
   }
   if (!claimed) return COLD_START_READING;
@@ -130,7 +139,9 @@ export async function resolveReading(token: string): Promise<string> {
     generated = null;
   }
   if (!generated) {
-    await refundReservation(reservation).catch(ignoreStoreFailure);
+    await refundReservation(reservation).catch(
+      containStoreFailure('resolveReading.refund')
+    );
     return COLD_START_READING;
   }
 
@@ -138,7 +149,7 @@ export async function resolveReading(token: string): Promise<string> {
   // caching and rewriting the hold are all best-effort: failing any of them
   // must never cost the visitor a reading they already paid for.
   await settleGeneration(token, hold.hand, reservation, generated).catch(
-    ignoreStoreFailure
+    containStoreFailure('resolveReading.settle')
   );
 
   return generated.reading;

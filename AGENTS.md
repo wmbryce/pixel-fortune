@@ -39,12 +39,17 @@ Tuning is env-only, all optional with defaults (`src/server/config.ts`):
 `PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the "never generate live"
 kill switch; `PF_READING_BUDGET_USD` must be positive and falls back to its
 default otherwise, because a zero reservation would disable the cap entirely.
-`GET /api/status` reports mode, spend, and cache size.
 
 Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
 `KV_REST_API_*` names Vercel injects). With neither set the store falls back to
-per-instance memory — fine for `npm run dev`, useless on Vercel, and
-`/api/status` says which one is live.
+per-instance memory — fine for `npm run dev`, useless on Vercel.
+
+`GET /api/status` reports mode, spend, cache size, and which store is live.
+Store failures are contained everywhere else (a visitor gets the cold-start
+reading, never an error), so this endpoint is where that shows up: `mode` is
+`degraded` — never `live` — when the store cannot answer or recently failed a
+command, and `store.lastFailure` names the site. The failure counter is
+per-instance, so the log line `noteStoreFailure` emits is the durable record.
 
 ## TypeScript ceiling
 

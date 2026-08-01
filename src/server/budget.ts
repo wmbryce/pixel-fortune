@@ -15,12 +15,7 @@
  * a new month is simply a new key.
  */
 import { config } from './config';
-import { getStore } from './store';
-
-const HOLDS_KEY = 'pf:holds';
-
-/** How many expired holds one sweep reclaims, so a backlog cannot stall a deal. */
-const SWEEP_BATCH = 100;
+import { getStore, noteStoreFailure } from './store';
 
 /**
  * A reservation carries the month and amount it was charged to, so it is
@@ -37,67 +32,58 @@ export type Reservation = {
 
 const monthOf = (now: Date) => now.toISOString().slice(0, 7);
 
+const previousMonthOf = (now: Date) =>
+  monthOf(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)));
+
 const spendKey = (month: string) => `pf:spend:${month}`;
+
+/**
+ * One hold set per spend month. Partitioning by month is what keeps a refund
+ * on the counter it was charged to *and* keeps the sweep a single range delete,
+ * because every member of a set maps to exactly one counter.
+ */
+const holdsKey = (month: string) => `pf:holds:${month}`;
 
 /** Unresolved holds for one rate-limit identity, scored by expiry. */
 const identityHoldsKey = (identity: string) => `pf:holds:id:${identity}`;
-
-// `|` cannot occur in a month, a hex digest, an integer, or a UUID.
-const holdMember = (r: Reservation) =>
-  `${r.month}|${r.identity}|${r.micros}|${r.token}`;
-
-const parseHoldMember = (member: string): Reservation | null => {
-  const [month, identity, micros, token] = member.split('|');
-  if (!month || !identity || !token || !Number.isFinite(Number(micros))) {
-    return null;
-  }
-  return { month, identity, micros: Number(micros), token };
-};
 
 /**
  * Reservations that were never spent are refunded here. Without this an
  * abandoned draw would eat its reservation forever, and hammering the (free)
  * draw endpoint would exhaust the month's cap without generating a reading.
- * Each member is removed with `ZREM`, which reports whether *this* caller
- * removed it, so a refund can never be applied twice.
+ * `ZREMRANGEBYSCORE` is atomic and reports how many members *this* caller
+ * removed, so a refund can never be applied twice.
+ *
+ * The current and previous month cover every hold that can still matter: a
+ * reservation only ever expires in the month it was made or the next one. An
+ * older set can only be non-empty after a month of no traffic, and its counter
+ * is never read again. Per-identity sets are deliberately left alone — they
+ * prune themselves by score the next time that identity deals, so sweeping
+ * them here would trade one command for one per expired hold.
  */
 export async function sweepExpiredHolds(): Promise<number> {
   const store = getStore();
-  const expired = await store.zRangeByScore(
-    HOLDS_KEY,
-    0,
-    Date.now(),
-    SWEEP_BATCH
+  const now = new Date();
+  const months = [...new Set([monthOf(now), previousMonthOf(now)])];
+
+  const reclaimed = await Promise.all(
+    months.map(async month => {
+      const expired = await store.zRemRangeByScore(
+        holdsKey(month),
+        0,
+        now.getTime()
+      );
+      if (expired > 0) {
+        await store.incrBy(
+          spendKey(month),
+          -expired * config.readingBudgetMicros
+        );
+      }
+      return expired;
+    })
   );
-  if (expired.length === 0) return 0;
 
-  const claimed = await Promise.all(
-    expired.map(async member =>
-      (await store.zRem(HOLDS_KEY, member)) === 1
-        ? parseHoldMember(member)
-        : null
-    )
-  );
-
-  const refunds = new Map<string, number>();
-  const reclaimed: Reservation[] = [];
-  for (const reservation of claimed) {
-    if (!reservation) continue;
-    reclaimed.push(reservation);
-    refunds.set(
-      reservation.month,
-      (refunds.get(reservation.month) ?? 0) + reservation.micros
-    );
-  }
-
-  await Promise.all([
-    ...[...refunds].map(([month, micros]) =>
-      store.incrBy(spendKey(month), -micros)
-    ),
-    ...reclaimed.map(r => store.zRem(identityHoldsKey(r.identity), r.token)),
-  ]);
-
-  return reclaimed.length;
+  return reclaimed.reduce((total, count) => total + count, 0);
 }
 
 /**
@@ -109,6 +95,13 @@ export async function sweepExpiredHolds(): Promise<number> {
  * whole reservation pool for the hold TTL and pin the site in cached mode
  * without ever spending a cent. Exceeding it demotes, exactly like the rate
  * limit — it is never an error.
+ *
+ * Both bounds are enforced by taking the slot first and asking where it landed,
+ * never by reading a total and then acting on it. Reading a cardinality first
+ * lets a burst from one identity all observe the same count and all pass;
+ * `ZRANK` after the insert gives each caller a distinct position — the same
+ * property that makes the `INCRBY` below unbypassable — so exactly the first
+ * `maxConcurrentHolds` survive however they interleave.
  */
 export async function reserveReading(
   token: string,
@@ -116,10 +109,17 @@ export async function reserveReading(
 ): Promise<Reservation | null> {
   const store = getStore();
   const now = Date.now();
+  const expiresAt = now + config.holdTtlSeconds * 1000;
   const identityKey = identityHoldsKey(identity);
 
   await store.zRemRangeByScore(identityKey, 0, now);
-  if ((await store.zCard(identityKey)) >= config.maxConcurrentHolds) return null;
+  await store.zAdd(identityKey, expiresAt, token);
+  await store.expire(identityKey, config.holdTtlSeconds);
+  const rank = await store.zRank(identityKey, token);
+  if (rank === null || rank >= config.maxConcurrentHolds) {
+    await store.zRem(identityKey, token);
+    return null;
+  }
 
   const reservation: Reservation = {
     month: monthOf(new Date(now)),
@@ -134,30 +134,34 @@ export async function reserveReading(
   );
   if (total > config.monthlyCapMicros) {
     await store.incrBy(spendKey(reservation.month), -reservation.micros);
+    await store.zRem(identityKey, token);
     return null;
   }
 
-  const expiresAt = now + config.holdTtlSeconds * 1000;
-  await store.zAdd(HOLDS_KEY, expiresAt, holdMember(reservation));
-  await store.zAdd(identityKey, expiresAt, token);
-  await store.expire(identityKey, config.holdTtlSeconds);
+  await store.zAdd(holdsKey(reservation.month), expiresAt, token);
   return reservation;
 }
 
 /**
  * Claims a live reservation. Exactly one caller can claim a given token, which
  * is what stops a replayed token from buying a second generation.
+ *
+ * The claim commits on that first `ZREM` — after it the sweep can never refund
+ * this reservation — so nothing that follows may fail the caller. Releasing the
+ * identity slot is housekeeping: losing it only delays that slot to the hold's
+ * expiry, whereas failing here would charge a visitor for a reading and then
+ * hand them the cold-start text instead.
  */
 export async function claimReservation(
   reservation: Reservation
 ): Promise<boolean> {
   const store = getStore();
-  const claimed = (await store.zRem(HOLDS_KEY, holdMember(reservation))) === 1;
+  const claimed =
+    (await store.zRem(holdsKey(reservation.month), reservation.token)) === 1;
   if (claimed) {
-    await store.zRem(
-      identityHoldsKey(reservation.identity),
-      reservation.token
-    );
+    await store
+      .zRem(identityHoldsKey(reservation.identity), reservation.token)
+      .catch(error => noteStoreFailure('claimReservation.identitySlot', error));
   }
   return claimed;
 }
