@@ -1,6 +1,6 @@
 # Animation audit
 
-Stamped at `a87d190`. Resolves [#10](https://github.com/wmbryce/pixel-fortune/issues/10).
+Stamped at `6ec4bab`. Resolves [#10](https://github.com/wmbryce/pixel-fortune/issues/10).
 
 Audited against the eight categories in the `improve-animations` playbook (Emil Kowalski's motion philosophy). Every finding below was re-read at its `file:line` before being listed.
 
@@ -23,15 +23,15 @@ Ordered by leverage (impact ÷ effort). Numbering is frozen because tickets #11-
 | --- | --- | --- | --- | --- | --- |
 | 1 | HIGH | Missed opportunity | `Card.tsx:84-101` | The card reveal — the signature moment of a tarot app — is a 1s opacity crossfade of the card back. There is no flip. | 3D `rotateY` flip with `backface-visibility: hidden`, spring `{ duration: 0.5, bounce: 0.2 }` |
 | 2 | HIGH | Purpose | `Card.tsx:23,42` | `backgroundRef` is declared but never attached to any element, so the third step of the reveal sequence animates `null`. The darkening it intends already happens via `backgroundVariants`. Dead motion. | Delete the third `animate()` step and the ref |
-| 3 | HIGH | Performance | `DialogBox/index.tsx:161-187` | The dialog springs `height` 64px → 256px. Height triggers layout + paint on every frame, on the app's most-visible element. All three transitions here (`y` at `:168` and `:182`, `height` at `:178`) are `{ duration: 1, type: 'spring' }` — a real **1000ms** each, per the evidence block. | Animate `transform: scaleY` or a grid-rows trick; keep `height` off the timeline |
+| 3 | HIGH | Performance | `DialogBox/index.tsx:164-190` | The dialog springs `height` 64px → 256px. Height triggers layout + paint on every frame, on the app's most-visible element. All three transitions here (`y` at `:171` and `:185`, `height` at `:181`) are `{ duration: 1, type: 'spring' }` — a real **1000ms** each, per the evidence block. | Animate `transform: scaleY` or a grid-rows trick; keep `height` off the timeline |
 | 4 | HIGH | Interruptibility | `CardTable.tsx:24-35` | The deal stagger is a `setTimeout` inside an effect that re-triggers itself by incrementing its own dependency. Non-interruptible, and it is the source of the `react-hooks/set-state-in-effect` lint error. | Delete the effect; use motion's `staggerChildren` / `delayChildren` at 60ms |
 | 5 | HIGH | Accessibility | whole app | No `prefers-reduced-motion` handling anywhere — not in CSS, not via `useReducedMotion()`. | Branch transform values on `useReducedMotion()`; keep opacity, drop travel |
 | 6 | MEDIUM | Accessibility | `Card.tsx:70` | `whileHover={{ y: -10 }}` is ungated, so touch devices fire a false hover on tap. There is no `whileTap` at all, so the primary interaction has no press feedback. | Gate hover behind `@media (hover: hover)`; add `whileTap={{ scale: 0.97 }}` |
 | 7 | MEDIUM | Easing & duration | `tarot/layout.tsx:12`, `Welcome.tsx:8` | `animate-fadeIn` resolves to `fadeInOut 3s linear reverse` — 3000ms on a page entrance, 10× the 300ms UI budget, with `linear` easing and keyframes (so non-interruptible). | 200ms with `cubic-bezier(0.23, 1, 0.32, 1)`, as a transition not keyframes |
 | 8 | HIGH | Easing & duration | `Card.tsx:89` | Card-back exit is `{ type: 'spring', duration: 1 }`. `motion` 12 **honours `duration` on a spring** with or without `bounce` (`getSpringOptions` routes `duration` through `findSpring`), so this is a real **1000ms** exit, over 3× the 300ms UI budget. | Subsumed by the flip in #1 |
-| 9 | HIGH | Easing & duration | `DialogBox/index.tsx:224` | Button row uses `{ duration: 2, type: 'spring' }` — a real **2000ms** settle before the primary action is usable. The slowest motion in the app, on its most-used control. | `{ type: 'spring', duration: 0.4, bounce: 0.2 }` |
-| 10 | MEDIUM | Physicality | `CardTable.tsx:64-68` | Cards deal in from a hardcoded `y: -500`. On a short viewport they start far off-screen; on a tall one they barely travel. The transition at `:67` is `{ type: 'spring', duration: 1 }` — a real **1000ms** per card, per the evidence block. | `y: '-120%'` — percentage of the element's own height |
-| 11 | MEDIUM | Purpose | `DialogBox:192`, `CardTable:62` | `layoutId` on elements with no counterpart to travel between, plus two `AnimatePresence` wrappers over permanently-mounted children — `mode="popLayout"` at `DialogBox:190` and a second at `DialogBox:197`. Layout-animation machinery doing nothing. | Remove all four |
+| 9 | HIGH | Easing & duration | `DialogBox/index.tsx:227` | Button row uses `{ duration: 2, type: 'spring' }` — a real **2000ms** settle before the primary action is usable. The slowest motion in the app, on its most-used control. | `{ type: 'spring', duration: 0.4, bounce: 0.2 }` |
+| 10 | MEDIUM | Physicality | `CardTable.tsx:62-66` | Cards deal in from a hardcoded `y: -500`. On a short viewport they start far off-screen; on a tall one they barely travel. The transition at `:65` is `{ type: 'spring', duration: 1 }` — a real **1000ms** per card, per the evidence block. | `y: '-120%'` — percentage of the element's own height |
+| 11 | MEDIUM | Purpose | `DialogBox:195`, `CardTable:60` | `layoutId` on elements with no counterpart to travel between, plus two `AnimatePresence` wrappers over permanently-mounted children — `mode="popLayout"` at `DialogBox:193` and a second at `DialogBox:200`. Layout-animation machinery doing nothing. | Remove all four |
 | 12 | LOW | Cohesion | everywhere | Zero motion tokens. Durations `0.2 / 0.5 / 1 / 2 / 3s` and every spring config are hand-typed at each call site. | Introduce `--ease-*` / `--duration-*` and a shared spring preset |
 | 13 | LOW | Cohesion | `Card.tsx:28`, `tailwind.config.ts:35-38,45,47`, `tarot/layout.tsx:12`, `TypingText.tsx:66` | Dead motion config: `staggerDelay` declared and unused; the `fade` and `type` animations never referenced; `bg-grey` names no token, so none reach the built CSS. `type` is the only consumer of the `typing` keyframes (`:35-38`), so those go with it, or the deletion just orphans them; `fadeInOut` (`:31-34`) **stays** — `fadeIn` still uses it. `font-pixel` is dead the same way (`tailwind.config.ts:17-20` defines `sans`/`normal`, not `pixel`) but is **not** a delete: `body` carries no font class (`global.css:19-27`) and `--font-pixelify` is only bound as a variable, so the dialog body — the app's main reading surface — already renders in the browser default. | Delete — **except `font-pixel` → `font-sans`**, which is the Pixelify face (`tailwind.config.ts:18`), matching every other text node |
 | 14 | LOW | Accessibility | `welcome/page.tsx:39` | `animate-blink` runs `infinite` — perpetual motion with no reduced-motion escape. | Gate under `prefers-reduced-motion` |
@@ -50,11 +50,11 @@ spring 1000ms+bounce0.2 -> settles at 1000 ms
 | Site | Value | Real settle | Finding |
 | --- | --- | --- | --- |
 | `Card.tsx:89` | `duration: 1` | 1000ms | #8 |
-| `DialogBox/index.tsx:224` | `duration: 2` | 2000ms | #9 |
-| `DialogBox/index.tsx:168` (`y`, loading) | `duration: 1` | 1000ms | #3 |
-| `DialogBox/index.tsx:178` (`height`, visible) | `duration: 1` | 1000ms | #3 |
-| `DialogBox/index.tsx:182` (`y`, visible) | `duration: 1` | 1000ms | #3 |
-| `CardTable.tsx:67` | `duration: 1` | 1000ms | #10 |
+| `DialogBox/index.tsx:227` | `duration: 2` | 2000ms | #9 |
+| `DialogBox/index.tsx:171` (`y`, loading) | `duration: 1` | 1000ms | #3 |
+| `DialogBox/index.tsx:181` (`height`, visible) | `duration: 1` | 1000ms | #3 |
+| `DialogBox/index.tsx:185` (`y`, visible) | `duration: 1` | 1000ms | #3 |
+| `CardTable.tsx:65` | `duration: 1` | 1000ms | #10 |
 | `Card.tsx:30-33` `transit`, spread at `:39`, `:40`, `:70` | `duration: 0.2` | 200ms | — (in budget) |
 
 Seven, not two — no spring `duration` in this codebase is inert. Six are over the 300ms budget; only `transit` is under it.
