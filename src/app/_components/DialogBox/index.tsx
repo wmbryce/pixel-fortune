@@ -24,6 +24,8 @@ type tableStateType = {
 
 type Props = {
   tarotHand: CardType[];
+  /** Opaque handle from the deal; the server resolves the reading from it. */
+  readingToken: string;
   allRevealed: boolean;
   fetchHand: boolean;
   setFetchHand: Dispatch<SetStateAction<boolean>>;
@@ -34,6 +36,7 @@ type Props = {
 
 function DialogBox({
   tarotHand,
+  readingToken,
   allRevealed,
   fetchHand,
   setFetchHand,
@@ -116,7 +119,7 @@ function DialogBox({
 
   useEffect(() => {
     if (tarotHand.length === 5) {
-      fetchFortune(tarotHand);
+      fetchFortune({ token: readingToken });
       setFetchHand(false);
       // The fortune can settle before this fires; the placeholder must never
       // clobber a reading that has already arrived.

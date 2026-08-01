@@ -1,26 +1,21 @@
 import { publicProcedure, router } from "./trpc";
-import { createTarotDeck } from "./handlers/deck";
-import { TarotHandType } from "@/types";
-import { generateFortune } from "./handlers/fortune";
+import { dealHand, resolveReading } from "./handlers/reading";
 import { z } from "zod";
 
 export const appRouter = router({
-  getTarotHand: publicProcedure.query(async () => {
-    const newTarotDeck: TarotHandType = createTarotDeck();
-    return newTarotDeck.slice(0, 5);
-  }),
+  /**
+   * A mutation, not a query: dealing reserves budget, so it must not be
+   * refetched or replayed by the query cache.
+   */
+  dealHand: publicProcedure.mutation(({ ctx }) => dealHand(ctx.visitor)),
+  /**
+   * Takes only the opaque token from the deal. The hand lives server-side, so
+   * a client cannot choose the cards the prompt is built from — which is what
+   * keeps attacker-authored text out of the reading cache.
+   */
   getFortune: publicProcedure
-    .input(
-      z.array(
-        z.object({
-          id: z.number(),
-          image: z.string(),
-          description: z.string(),
-          name: z.string(),
-        })
-      )
-    )
-    .mutation(async ({ input }) => generateFortune(input)),
+    .input(z.object({ token: z.string().min(1).max(128) }))
+    .mutation(({ input }) => resolveReading(input.token)),
 });
 
 export type AppRouter = typeof appRouter;
