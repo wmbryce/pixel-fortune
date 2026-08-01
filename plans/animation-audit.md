@@ -17,7 +17,7 @@ Audited against the eight categories in the `improve-animations` playbook (Emil 
 
 ## Findings
 
-Ordered by leverage (impact ÷ effort).
+Ordered by leverage (impact ÷ effort). Numbering is frozen because tickets #11-#20 cite it, so after the #8/#9 re-rating the priority signal is the **Severity** column, not row position.
 
 | # | Severity | Category | Location | Finding | Fix summary |
 | --- | --- | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ Ordered by leverage (impact ÷ effort).
 | 10 | MEDIUM | Physicality | `CardTable.tsx:64-68` | Cards deal in from a hardcoded `y: -500`. On a short viewport they start far off-screen; on a tall one they barely travel. The transition at `:67` is `{ type: 'spring', duration: 1 }` — a real **1000ms** per card, per the evidence block. | `y: '-120%'` — percentage of the element's own height |
 | 11 | MEDIUM | Purpose | `DialogBox:192`, `CardTable:62` | `layoutId` on elements with no counterpart to travel between, plus two `AnimatePresence` wrappers over permanently-mounted children — `mode="popLayout"` at `DialogBox:190` and a second at `DialogBox:197`. Layout-animation machinery doing nothing. | Remove all four |
 | 12 | LOW | Cohesion | everywhere | Zero motion tokens. Durations `0.2 / 0.5 / 1 / 2 / 3s` and every spring config are hand-typed at each call site. | Introduce `--ease-*` / `--duration-*` and a shared spring preset |
-| 13 | LOW | Cohesion | `Card.tsx:28`, `tailwind.config.ts:45,47`, `tarot/layout.tsx:12`, `TypingText.tsx:66` | Dead motion config: `staggerDelay` declared and unused; the `fade` and `type` animations never referenced; `bg-grey` names no token, so none reach the built CSS. `font-pixel` is dead the same way (`tailwind.config.ts:17-20` defines `sans`/`normal`, not `pixel`) but is **not** a delete: `body` carries no font class (`global.css:19-27`) and `--font-pixelify` is only bound as a variable, so the dialog body — the app's main reading surface — already renders in the browser default. | Delete — **except `font-pixel` → `font-sans`**, which is the Pixelify face (`tailwind.config.ts:18`), matching every other text node |
+| 13 | LOW | Cohesion | `Card.tsx:28`, `tailwind.config.ts:35-38,45,47`, `tarot/layout.tsx:12`, `TypingText.tsx:66` | Dead motion config: `staggerDelay` declared and unused; the `fade` and `type` animations never referenced; `bg-grey` names no token, so none reach the built CSS. `type` is the only consumer of the `typing` keyframes (`:35-38`), so those go with it, or the deletion just orphans them; `fadeInOut` (`:31-34`) **stays** — `fadeIn` still uses it. `font-pixel` is dead the same way (`tailwind.config.ts:17-20` defines `sans`/`normal`, not `pixel`) but is **not** a delete: `body` carries no font class (`global.css:19-27`) and `--font-pixelify` is only bound as a variable, so the dialog body — the app's main reading surface — already renders in the browser default. | Delete — **except `font-pixel` → `font-sans`**, which is the Pixelify face (`tailwind.config.ts:18`), matching every other text node |
 | 14 | LOW | Accessibility | `welcome/page.tsx:39` | `animate-blink` runs `infinite` — perpetual motion with no reduced-motion escape. | Gate under `prefers-reduced-motion` |
 
 **On spring `duration` (#3, #8, #9, #10).** A `motion` 12 spring does *not* discard `duration`. `getSpringOptions` treats it as a `durationKeys` member and routes to `findSpring` (`motion-dom/dist/cjs/index.js:872-895`); seconds→ms conversion at `:3299`. Measured against the installed `motion` 12.43.0:
