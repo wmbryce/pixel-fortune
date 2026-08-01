@@ -41,9 +41,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   }, [revealedCards, setAllRevealed]);
 
   const UpdateRevealCard = (index: number) => {
-    const newRevealedCards = [...revealedCards];
-    newRevealedCards[index] = true;
-    setRevealedCards(newRevealedCards);
+    setRevealedCards(prev => prev.map((r, i) => (i === index ? true : r)));
   };
 
   return (

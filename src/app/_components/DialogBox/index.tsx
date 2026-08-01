@@ -118,9 +118,12 @@ function DialogBox({
     if (tarotHand.length === 5) {
       fetchFortune(tarotHand);
       setFetchHand(false);
-      setTimeout(() => {
-        setDialogStates([reveal]);
+      // The fortune can settle before this fires; the placeholder must never
+      // clobber a reading that has already arrived.
+      const revealTimer = setTimeout(() => {
+        setDialogStates(prev => (prev.length > 0 ? prev : [reveal]));
       }, 2200);
+      return () => clearTimeout(revealTimer);
     }
   }, [tarotHand]);
 
