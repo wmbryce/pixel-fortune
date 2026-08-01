@@ -17,6 +17,41 @@ The delay is the lever for the DialogBox state machine: the reveal placeholder i
 scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
 orderings of the reading vs that timer.
 
+## API budget: live until the cap, then cached
+
+`src/server/budget.ts` (spend cap), `src/server/cache.ts` (reading pool),
+`src/server/rate-limit.ts`, `src/server/handlers/reading.ts` (the two procedures).
+Read the header comments there before changing any of it. Two things are easy to
+break without noticing:
+
+- **In cached mode the reading is chosen first and its cards are dealt.** Never
+  turn it into "deal a spread, then look up a reading for it" — five of 78 cards
+  essentially never repeats, so that lookup would miss every time.
+- **Budget is reserved before the OpenAI call, not after.** The reserve is one
+  atomic `INCRBY`; check-then-call lets a concurrent burst through the cap.
+- **A reservation is settled against the month it was charged to**, carried on
+  the hold rather than resolved at settle time — otherwise a hold that outlives
+  midnight UTC on the 1st refunds into the new month and raises its cap.
+
+Tuning is env-only, all optional with defaults (`src/server/config.ts`):
+`PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
+`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`,
+`PF_HOLD_TTL_SECONDS`, `PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the
+"never generate live" kill switch; `PF_READING_BUDGET_USD` must be positive and
+falls back to its default otherwise, because a zero reservation would disable
+the cap entirely.
+
+Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
+`KV_REST_API_*` names Vercel injects). With neither set the store falls back to
+per-instance memory — fine for `npm run dev`, useless on Vercel.
+
+`GET /api/status` reports mode, spend, cache size, and which store is live.
+Store failures are contained everywhere else (a visitor gets the cold-start
+reading, never an error), so this endpoint is where that shows up: `mode` is
+`degraded` — never `live` — when the store cannot answer or recently failed a
+command, and `store.lastFailure` names the site. The failure counter is
+per-instance, so the log line `noteStoreFailure` emits is the durable record.
+
 ## TypeScript ceiling
 
 The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),

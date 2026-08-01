@@ -1,5 +1,5 @@
 import { CardType } from "@/types";
-import { createTarotDeck } from "./deck";
+import { config } from "../config";
 import OpenAI from "openai";
 
 let openai: OpenAI;
@@ -12,6 +12,8 @@ function getOpenAIClient() {
   }
   return openai;
 }
+
+export const FORTUNE_MODEL = "gpt-3.5-turbo-16k";
 
 const generateFortunePrompt = (tarotHand: CardType[]) => {
   const cardString = tarotHand
@@ -31,13 +33,39 @@ const generateFortunePrompt = (tarotHand: CardType[]) => {
   return prompt;
 };
 
-export const generateFortune = async (tarotHand?: CardType[]) => {
-  const hand = tarotHand ?? createTarotDeck().slice(0, 5);
+export type GeneratedFortune = {
+  reading: string;
+  model: string;
+  usage: { promptTokens: number; completionTokens: number };
+};
 
+/**
+ * One live generation. `max_tokens` is the second half of the spend cap: the
+ * reservation assumes a bounded completion, so the request has to enforce that
+ * bound. Whoever changes the model (#12) may need the newer
+ * `max_completion_tokens` spelling — the cap depends on one of the two being set.
+ *
+ * The hand is required: it always comes from the server-side hold, never from
+ * the client.
+ */
+export const generateFortune = async (
+  tarotHand: CardType[]
+): Promise<GeneratedFortune | null> => {
   const response = await getOpenAIClient().chat.completions.create({
-    messages: [{ role: "user", content: generateFortunePrompt(hand) }],
-    model: "gpt-3.5-turbo-16k",
+    messages: [{ role: "user", content: generateFortunePrompt(tarotHand) }],
+    model: FORTUNE_MODEL,
+    max_tokens: config.maxOutputTokens,
   });
 
-  return response?.choices?.[0]?.message?.content;
+  const reading = response?.choices?.[0]?.message?.content;
+  if (!reading) return null;
+
+  return {
+    reading,
+    model: response.model ?? FORTUNE_MODEL,
+    usage: {
+      promptTokens: response.usage?.prompt_tokens ?? 0,
+      completionTokens: response.usage?.completion_tokens ?? 0,
+    },
+  };
 };

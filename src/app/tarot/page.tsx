@@ -10,22 +10,29 @@ export default function Home() {
   const [showDialogBox, setShowDialogBox] = useState<boolean>(false);
   const [stateIndex, setStateIndex] = useState<number>(0);
   const [tarotHand, setTarotHand] = useState<CardType[]>([]);
+  const [readingToken, setReadingToken] = useState<string>('');
   const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
-  const getTarotHand = trpc.getTarotHand.useQuery(undefined, {
-    enabled: fetchHand,
+  // Dealing reserves API budget server-side, so it is a mutation: the query
+  // cache must never refetch or replay it.
+  const { mutate: deal } = trpc.dealHand.useMutation({
+    onSuccess: data => {
+      setTarotHand(data.hand);
+      setReadingToken(data.token);
+      setAllRevealed(false);
+    },
   });
 
   useEffect(() => {
-    if (getTarotHand.data && fetchHand) {
-      setTarotHand(getTarotHand.data);
+    if (fetchHand) {
       setFetchHand(false);
-      setAllRevealed(false);
+      deal();
     }
-  }, [getTarotHand.data, fetchHand]);
+  }, [fetchHand, deal]);
 
   const resetData = () => {
     setTarotHand([]);
+    setReadingToken('');
   };
 
   useEffect(() => {
@@ -42,6 +49,7 @@ export default function Home() {
           <DialogBox
             allRevealed={allRevealed}
             tarotHand={tarotHand}
+            readingToken={readingToken}
             fetchHand={fetchHand}
             setFetchHand={setFetchHand}
             stateIndex={stateIndex}

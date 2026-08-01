@@ -63,6 +63,7 @@ function Harness({ tarotHand }: { tarotHand: CardType[] }) {
   return (
     <DialogBox
       tarotHand={tarotHand}
+      readingToken="test-token"
       allRevealed
       fetchHand={false}
       setFetchHand={() => {}}
