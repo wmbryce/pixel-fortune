@@ -17,6 +17,17 @@ The delay is the lever for the DialogBox state machine: the reveal placeholder i
 scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
 orderings of the reading vs that timer.
 
+## TypeScript ceiling
+
+The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),
+whose peer range is `typescript: ">=4.8.4 <6.1.0"` — so the range in `package.json`
+is `~6.0.3`, patches only. Widening it to a caret lets `npm install` pull 6.1.x and
+lint on an unsupported compiler.
+
+The outer bound is Next.js: `npm run build` fails on TS 7 with "TypeScript 7.x does
+not provide the compiler API required by Next.js", even though `tsc --noEmit` is
+clean. Don't bump to `latest`.
+
 ## Tests
 
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
