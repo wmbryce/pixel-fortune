@@ -17,6 +17,12 @@ The delay is the lever for the DialogBox state machine: the reveal placeholder i
 scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
 orderings of the reading vs that timer.
 
+## TypeScript ceiling
+
+TypeScript is capped below 7: `npm run build` fails with "TypeScript 7.x does not
+provide the compiler API required by Next.js", even though `tsc --noEmit` is clean.
+The `^6.0.3` range in `package.json` is the ceiling — don't bump to `latest`.
+
 ## Tests
 
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
