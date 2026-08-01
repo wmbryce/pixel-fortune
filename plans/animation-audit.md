@@ -22,19 +22,30 @@ Ordered by leverage (impact ÷ effort).
 | # | Severity | Category | Location | Finding | Fix summary |
 | --- | --- | --- | --- | --- | --- |
 | 1 | HIGH | Missed opportunity | `Card.tsx:84-101` | The card reveal — the signature moment of a tarot app — is a 1s opacity crossfade of the card back. There is no flip. | 3D `rotateY` flip with `backface-visibility: hidden`, spring `{ duration: 0.5, bounce: 0.2 }` |
-| 2 | HIGH | Purpose | `Card.tsx:24,42` | `backgroundRef` is declared but never attached to any element, so the third step of the reveal sequence animates `null`. The darkening it intends already happens via `backgroundVariants`. Dead motion. | Delete the third `animate()` step and the ref |
+| 2 | HIGH | Purpose | `Card.tsx:23,42` | `backgroundRef` is declared but never attached to any element, so the third step of the reveal sequence animates `null`. The darkening it intends already happens via `backgroundVariants`. Dead motion. | Delete the third `animate()` step and the ref |
 | 3 | HIGH | Performance | `DialogBox/index.tsx:161-187` | The dialog springs `height` 64px → 256px. Height triggers layout + paint on every frame, on the app's most-visible element. | Animate `transform: scaleY` or a grid-rows trick; keep `height` off the timeline |
-| 4 | HIGH | Interruptibility | `CardTable.tsx:29-40` | The deal stagger is a `setTimeout` inside an effect that re-triggers itself by incrementing its own dependency. Non-interruptible, and it is the source of the `react-hooks/set-state-in-effect` lint error. | Delete the effect; use motion's `staggerChildren` / `delayChildren` at 60ms |
+| 4 | HIGH | Interruptibility | `CardTable.tsx:24-35` | The deal stagger is a `setTimeout` inside an effect that re-triggers itself by incrementing its own dependency. Non-interruptible, and it is the source of the `react-hooks/set-state-in-effect` lint error. | Delete the effect; use motion's `staggerChildren` / `delayChildren` at 60ms |
 | 5 | HIGH | Accessibility | whole app | No `prefers-reduced-motion` handling anywhere — not in CSS, not via `useReducedMotion()`. | Branch transform values on `useReducedMotion()`; keep opacity, drop travel |
 | 6 | MEDIUM | Accessibility | `Card.tsx:70` | `whileHover={{ y: -10 }}` is ungated, so touch devices fire a false hover on tap. There is no `whileTap` at all, so the primary interaction has no press feedback. | Gate hover behind `@media (hover: hover)`; add `whileTap={{ scale: 0.97 }}` |
 | 7 | MEDIUM | Easing & duration | `tarot/layout.tsx:12`, `Welcome.tsx:8` | `animate-fadeIn` resolves to `fadeInOut 3s linear reverse` — 3000ms on a page entrance, 10× the 300ms UI budget, with `linear` easing and keyframes (so non-interruptible). | 200ms with `cubic-bezier(0.23, 1, 0.32, 1)`, as a transition not keyframes |
-| 8 | MEDIUM | Easing & duration | `Card.tsx:89` | Card-back exit is `{ type: 'spring', duration: 1 }`. Nominally a 1s exit — and a motion spring **ignores `duration` unless paired with `bounce` or `visualDuration`**, so the value is inert and the real timing is the default spring. | Subsumed by the flip in #1 |
-| 9 | MEDIUM | Easing & duration | `DialogBox/index.tsx:224` | Button row uses `{ duration: 2, type: 'spring' }` — same inert-duration bug, nominally 2s. | `{ type: 'spring', duration: 0.4, bounce: 0.2 }` |
+| 8 | HIGH | Easing & duration | `Card.tsx:89` | Card-back exit is `{ type: 'spring', duration: 1 }`. `motion` 12 **honours `duration` on a spring** with or without `bounce` (`getSpringOptions` routes `duration` through `findSpring`), so this is a real **1000ms** exit, 5× the 200ms budget. | Subsumed by the flip in #1 |
+| 9 | HIGH | Easing & duration | `DialogBox/index.tsx:224` | Button row uses `{ duration: 2, type: 'spring' }` — a real **2000ms** settle before the primary action is usable. The slowest motion in the app, on its most-used control. | `{ type: 'spring', duration: 0.4, bounce: 0.2 }` |
 | 10 | MEDIUM | Physicality | `CardTable.tsx:64` | Cards deal in from a hardcoded `y: -500`. On a short viewport they start far off-screen; on a tall one they barely travel. | `y: '-120%'` — percentage of the element's own height |
-| 11 | MEDIUM | Purpose | `DialogBox:192`, `CardTable:62` | `layoutId` on elements with no counterpart to travel between, plus `AnimatePresence mode="popLayout"` (`DialogBox:190`) wrapping a permanently-mounted child. Layout-animation machinery doing nothing. | Remove all three |
+| 11 | MEDIUM | Purpose | `DialogBox:192`, `CardTable:62` | `layoutId` on elements with no counterpart to travel between, plus two `AnimatePresence` wrappers over permanently-mounted children — `mode="popLayout"` at `DialogBox:190` and a second at `DialogBox:197`. Layout-animation machinery doing nothing. | Remove all four |
 | 12 | LOW | Cohesion | everywhere | Zero motion tokens. Durations `0.2 / 0.5 / 1 / 2 / 3s` and every spring config are hand-typed at each call site. | Introduce `--ease-*` / `--duration-*` and a shared spring preset |
-| 13 | LOW | Cohesion | `Card.tsx:28`, `tailwind.config.ts:47`, `tarot/layout.tsx:12` | Dead motion config: `staggerDelay` declared and unused; the `type` keyframe animation never referenced; `bg-grey` is not a defined colour token. | Delete |
+| 13 | LOW | Cohesion | `Card.tsx:28`, `tailwind.config.ts:45,47`, `tarot/layout.tsx:12`, `TypingText.tsx:66` | Dead motion config: `staggerDelay` declared and unused; the `fade` and `type` animations never referenced; `bg-grey` and `font-pixel` name no token (`tailwind.config.ts` defines `sans`/`normal`, not `pixel`), so neither reaches the built CSS. | Delete |
 | 14 | LOW | Accessibility | `welcome/page.tsx:39` | `animate-blink` runs `infinite` — perpetual motion with no reduced-motion escape. | Gate under `prefers-reduced-motion` |
+
+**On spring `duration` (#8, #9).** A `motion` 12 spring does *not* discard `duration`. `getSpringOptions` treats it as a `durationKeys` member and routes to `findSpring` (`motion-dom/dist/cjs/index.js:872-895`); seconds→ms conversion at `:3299`. Measured against the installed `motion` 12.43.0:
+
+```
+spring duration:1000ms  -> settles at 1000 ms
+spring duration:2000ms  -> settles at 2000 ms
+spring (no duration)    -> settles at 1068 ms
+spring 1000ms+bounce0.2 -> settles at 1000 ms
+```
+
+`bounce`/`visualDuration` shape the curve, they do not enable `duration`. Both values are live.
 
 ## Missed opportunities
 
@@ -47,6 +58,6 @@ Additive, not corrective. Four real seams observed in the flow:
 
 ## Suggested execution order
 
-Findings #2, #11, #13 are pure deletions and can land immediately — they shrink the surface everything else has to work against. #1 and #4 are the two that change how the app *feels* and deserve the most care. #5 and #12 are best done once, late, across everything.
+Finding #9 is a one-line change that removes a 2s wait on the app's main button — take it first. Findings #2, #11, #13 are pure deletions and can land immediately — they shrink the surface everything else has to work against. #1 and #4 are the two that change how the app *feels* and deserve the most care. #5 and #12 are best done once, late, across everything.
 
 Nothing here is blocked on the reveal-interaction prototype ([#13](https://github.com/wmbryce/pixel-fortune/issues/13)) except #1, which that prototype exists to settle.
