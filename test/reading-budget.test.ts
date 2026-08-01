@@ -20,6 +20,7 @@ import { budgetStatus, sweepExpiredHolds } from '@/server/budget';
 import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
 import { config } from '@/server/config';
+import { visitorIdentity } from '@/server/rate-limit';
 import { TarotDeck } from '@/server/data/tarot-deck';
 import {
   getStore,
@@ -265,16 +266,64 @@ describe('concurrent holds', () => {
     expect(after.reading).not.toBe(COLD_START_READING);
   });
 
-  it('holds the bound exactly under a burst from one identity', async () => {
+  it('never leaves more than the bound outstanding under a burst', async () => {
     vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
     vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '2');
 
-    // Check-then-act would let all ten read the same cardinality and reserve,
+    // Check-then-act would let all ten read the same count and all reserve,
     // leaving the rate limit (100 per visitor here) as the only real bound.
     const burst = visitor('burst');
     await Promise.all(Array.from({ length: 10 }, () => dealHand(burst)));
 
-    expect((await budgetStatus()).spentMicros).toBe(2 * 10_000);
+    const outstanding = await getStore().zCard(
+      `pf:holds:id:${visitorIdentity(burst)}`
+    );
+    expect(outstanding).toBeLessThanOrEqual(2);
+    expect((await budgetStatus()).spentMicros).toBeLessThanOrEqual(2 * 10_000);
+    expect((await budgetStatus()).spentMicros).toBe(outstanding * 10_000);
+  });
+
+  it('demotes a burst to a coherent cached reading, never an error', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '1');
+
+    const seed = await draw(visitor('seed'));
+
+    const burst = visitor('burst');
+    const dealt = await Promise.all(
+      Array.from({ length: 5 }, () => dealHand(burst))
+    );
+    const readings = await Promise.all(
+      dealt.map(hand => resolveReading(hand.token))
+    );
+
+    for (const text of readings) expect(text.length).toBeGreaterThan(0);
+    expect(readings.filter(text => text === seed.reading).length).toBeGreaterThan(0);
+    expect(dealt.every(hand => hand.hand.length === 5)).toBe(true);
+  });
+
+  it('keeps dealing when giving a rolled-back slot back fails', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '1');
+
+    const seed = await draw(visitor('seed'));
+
+    const parker = visitor('parker');
+    await dealHand(parker);
+
+    const store = getStore();
+    const realZRem = store.zRem.bind(store);
+    vi.spyOn(store, 'zRem').mockImplementation((key, member) =>
+      key.startsWith('pf:holds:id:')
+        ? Promise.reject(new Error('redis ZREM failed: 503'))
+        : realZRem(key, member)
+    );
+
+    const over = await dealHand(parker);
+
+    expect(over.hand).toHaveLength(5);
+    expect(await resolveReading(over.token)).toBe(seed.reading);
+    expect(storeFailures().last?.scope).toBe('reserveReading.releaseSlot');
   });
 
   it('defaults the hold TTL to ten minutes', () => {
@@ -284,7 +333,7 @@ describe('concurrent holds', () => {
 });
 
 describe('store failures', () => {
-  it.each(['setEx', 'incrBy', 'zRank'] as const)(
+  it.each(['setEx', 'incrBy', 'zCard'] as const)(
     'still deals a hand when %s is unreachable',
     async method => {
       breakStore(method);

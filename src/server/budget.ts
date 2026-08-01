@@ -96,12 +96,22 @@ export async function sweepExpiredHolds(): Promise<number> {
  * without ever spending a cent. Exceeding it demotes, exactly like the rate
  * limit — it is never an error.
  *
- * Both bounds are enforced by taking the slot first and asking where it landed,
- * never by reading a total and then acting on it. Reading a cardinality first
- * lets a burst from one identity all observe the same count and all pass;
- * `ZRANK` after the insert gives each caller a distinct position — the same
- * property that makes the `INCRBY` below unbypassable — so exactly the first
- * `maxConcurrentHolds` survive however they interleave.
+ * Both bounds take the slot first and give it back if it did not fit, never
+ * read a total and then act on it — a burst would otherwise all observe the
+ * same total and all pass. `ZCARD` after the insert bounds the set exactly: a
+ * caller that passes never removes its own member, so whichever passer inserted
+ * last counts every other passer, and it only passes if that count fits. A
+ * burst that all insert before any of them counts is therefore all rolled back
+ * — over-restrictive, never over-permissive, and demotion is the intended
+ * outcome for a burst from one identity anyway.
+ *
+ * Ranking rather than counting would not be exact here: the score has to stay
+ * the expiry so the range deletes above and the prune below keep working, so
+ * same-millisecond inserts tie and `ZRANK` falls back to ordering by token.
+ *
+ * Every rollback is best-effort. A store that fails while giving a slot back
+ * costs at most one parked hold until it expires, and must not be the reason a
+ * visitor loses their reading — the caller demotes to a cached one either way.
  */
 export async function reserveReading(
   token: string,
@@ -112,12 +122,16 @@ export async function reserveReading(
   const expiresAt = now + config.holdTtlSeconds * 1000;
   const identityKey = identityHoldsKey(identity);
 
+  const releaseSlot = () =>
+    store
+      .zRem(identityKey, token)
+      .catch(error => noteStoreFailure('reserveReading.releaseSlot', error));
+
   await store.zRemRangeByScore(identityKey, 0, now);
   await store.zAdd(identityKey, expiresAt, token);
   await store.expire(identityKey, config.holdTtlSeconds);
-  const rank = await store.zRank(identityKey, token);
-  if (rank === null || rank >= config.maxConcurrentHolds) {
-    await store.zRem(identityKey, token);
+  if ((await store.zCard(identityKey)) > config.maxConcurrentHolds) {
+    await releaseSlot();
     return null;
   }
 
@@ -133,8 +147,10 @@ export async function reserveReading(
     reservation.micros
   );
   if (total > config.monthlyCapMicros) {
-    await store.incrBy(spendKey(reservation.month), -reservation.micros);
-    await store.zRem(identityKey, token);
+    await store
+      .incrBy(spendKey(reservation.month), -reservation.micros)
+      .catch(error => noteStoreFailure('reserveReading.rollbackSpend', error));
+    await releaseSlot();
     return null;
   }
 

@@ -32,12 +32,7 @@ export interface Store {
   /** Returns 1 when this caller removed the member, 0 when someone else already had. */
   zRem(key: string, member: string): Promise<number>;
   zRemRangeByScore(key: string, min: number, max: number): Promise<number>;
-  /**
-   * Position of a member in score order, or null when it is absent. Distinct
-   * per member even for identical scores, which is what lets concurrent callers
-   * each learn their own place in a bounded set rather than a shared total.
-   */
-  zRank(key: string, member: string): Promise<number | null>;
+  zCard(key: string): Promise<number>;
   rPush(key: string, value: string): Promise<number>;
   lTrim(key: string, start: number, stop: number): Promise<void>;
   lLen(key: string): Promise<number>;
@@ -104,10 +99,7 @@ function createRedisStore({
     zRem: (key, member) => num(['ZREM', key, member]),
     zRemRangeByScore: (key, min, max) =>
       num(['ZREMRANGEBYSCORE', key, min, max]),
-    zRank: async (key, member) => {
-      const rank = await send(['ZRANK', key, member]);
-      return rank === null || rank === undefined ? null : Number(rank);
-    },
+    zCard: key => num(['ZCARD', key]),
     rPush: (key, value) => num(['RPUSH', key, value]),
     lTrim: async (key, start, stop) => {
       await send(['LTRIM', key, start, stop]);
@@ -199,15 +191,8 @@ function createMemoryStore(): Store & { clear(): void } {
       }
       return removed;
     },
-    async zRank(key, member) {
-      const set = liveZset(key);
-      if (!set?.has(member)) return null;
-      // Redis breaks score ties lexicographically by member.
-      const ordered = [...set].sort(
-        ([aMember, aScore], [bMember, bScore]) =>
-          aScore - bScore || aMember.localeCompare(bMember)
-      );
-      return ordered.findIndex(([name]) => name === member);
+    async zCard(key) {
+      return liveZset(key)?.size ?? 0;
     },
     async rPush(key, value) {
       const list = lists.get(key) ?? [];
