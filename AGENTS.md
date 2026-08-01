@@ -19,9 +19,14 @@ orderings of the reading vs that timer.
 
 ## TypeScript ceiling
 
-TypeScript is capped below 7: `npm run build` fails with "TypeScript 7.x does not
-provide the compiler API required by Next.js", even though `tsc --noEmit` is clean.
-The `^6.0.3` range in `package.json` is the ceiling — don't bump to `latest`.
+The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),
+whose peer range is `typescript: ">=4.8.4 <6.1.0"` — so the range in `package.json`
+is `~6.0.3`, patches only. Widening it to a caret lets `npm install` pull 6.1.x and
+lint on an unsupported compiler.
+
+The outer bound is Next.js: `npm run build` fails on TS 7 with "TypeScript 7.x does
+not provide the compiler API required by Next.js", even though `tsc --noEmit` is
+clean. Don't bump to `latest`.
 
 ## Tests
 
