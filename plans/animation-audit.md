@@ -45,7 +45,7 @@ spring (no duration)    -> settles at 1068 ms
 spring 1000ms+bounce0.2 -> settles at 1000 ms
 ```
 
-`bounce`/`visualDuration` shape the curve, they do not enable `duration`. Both values are live — and so is every other spring `duration` in the app. All six live sites:
+`bounce`/`visualDuration` shape the curve, they do not enable `duration`. Both values are live — and so is every other spring `duration` in the app. All seven live sites:
 
 | Site | Value | Real settle | Finding |
 | --- | --- | --- | --- |
@@ -55,8 +55,9 @@ spring 1000ms+bounce0.2 -> settles at 1000 ms
 | `DialogBox/index.tsx:178` (`height`, visible) | `duration: 1` | 1000ms | #3 |
 | `DialogBox/index.tsx:182` (`y`, visible) | `duration: 1` | 1000ms | #3 |
 | `CardTable.tsx:67` | `duration: 1` | 1000ms | #10 |
+| `Card.tsx:30-33` `transit`, spread at `:39`, `:40`, `:70` | `duration: 0.2` | 200ms | — (in budget) |
 
-Six, not two — no spring `duration` in this codebase is inert.
+Seven, not two — no spring `duration` in this codebase is inert. Six are over the 300ms budget; only `transit` is under it.
 
 ## Missed opportunities
 
