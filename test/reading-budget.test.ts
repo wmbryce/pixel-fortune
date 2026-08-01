@@ -19,8 +19,9 @@ import { dealHand, resolveReading } from '@/server/handlers/reading';
 import { budgetStatus, sweepExpiredHolds } from '@/server/budget';
 import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
+import { config } from '@/server/config';
 import { TarotDeck } from '@/server/data/tarot-deck';
-import { resetStoreForTests } from '@/server/store';
+import { getStore, resetStoreForTests, type Store } from '@/server/store';
 
 const PER_READING_USD = 0.01;
 
@@ -34,6 +35,17 @@ const draw = async (who = visitor('v1')) => {
   const dealt = await dealHand(who);
   const text = await resolveReading(dealt.token);
   return { ...dealt, reading: text };
+};
+
+type StoreMethod = {
+  [K in keyof Store]: Store[K] extends (...args: never[]) => unknown ? K : never;
+}[keyof Store];
+
+/** Makes one store operation throw, the way a Redis outage would. */
+const breakStore = (method: StoreMethod) => {
+  vi.spyOn(getStore(), method as 'get').mockRejectedValue(
+    new Error(`redis ${method} failed: 503`)
+  );
 };
 
 beforeEach(() => {
@@ -56,6 +68,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.useRealTimers();
 });
@@ -119,6 +132,154 @@ describe('spend cap', () => {
     vi.setSystemTime(Date.now() + 5_000);
     expect(await sweepExpiredHolds()).toBe(1);
     expect((await budgetStatus()).spentMicros).toBe(0);
+  });
+
+  it('refunds an expired hold to the month it was charged to', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-31T23:59:00Z'));
+    await dealHand(visitor('boundary'));
+    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(10_000);
+
+    // The hold outlives midnight UTC on the 1st. Refunding at sweep time would
+    // credit August, pushing its counter negative and raising its cap.
+    vi.setSystemTime(new Date('2026-08-01T01:00:00Z'));
+    expect(await sweepExpiredHolds()).toBe(1);
+
+    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(0);
+    expect(Number((await getStore().get('pf:spend:2026-08')) ?? 0)).toBe(0);
+
+    const status = await budgetStatus();
+    expect(status.month).toBe('2026-08');
+    expect(status.spentMicros).toBe(0);
+  });
+
+  it('never refunds the same expired hold twice', async () => {
+    vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
+    await dealHand(visitor('ghost-a'));
+    await dealHand(visitor('ghost-b'));
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 5_000);
+    const [first, ...rest] = await Promise.all([
+      sweepExpiredHolds(),
+      sweepExpiredHolds(),
+      sweepExpiredHolds(),
+    ]);
+
+    expect(first + rest.reduce((a, b) => a + b, 0)).toBe(2);
+    expect((await budgetStatus()).spentMicros).toBe(0);
+  });
+
+  it('falls back to the default per-reading budget rather than zero', () => {
+    for (const value of ['', '0', '-1', 'nonsense', '0.0000001']) {
+      vi.stubEnv('PF_READING_BUDGET_USD', value);
+      expect(config.readingBudgetMicros).toBe(10_000);
+    }
+  });
+
+  it('still enforces the cap when the per-reading budget is blank', async () => {
+    // `Number('') === 0`, and a zero reservation never moves the counter, so a
+    // blank value used to disable the cap outright.
+    vi.stubEnv('PF_READING_BUDGET_USD', '');
+    for (let i = 0; i < 8; i++) await draw(visitor(`blank-${i}`));
+
+    expect(calls).toBe(3);
+    expect((await budgetStatus()).capReached).toBe(true);
+  });
+});
+
+describe('concurrent holds', () => {
+  it('demotes to cached mode past the per-identity hold cap', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '2');
+
+    const seed = await draw(visitor('seed'));
+    expect(seed.reading).not.toBe(COLD_START_READING);
+
+    // Two deals parked without ever asking for their reading.
+    const parker = visitor('parker');
+    await dealHand(parker);
+    await dealHand(parker);
+
+    const third = await dealHand(parker);
+    const text = await resolveReading(third.token);
+
+    expect(calls).toBe(1);
+    expect(third.hand).toEqual(seed.hand);
+    expect(text).toBe(seed.reading);
+  });
+
+  it('does not block a visitor whose own readings finished', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '2');
+
+    const regular = visitor('regular');
+    for (let i = 0; i < 5; i++) await draw(regular);
+
+    expect(calls).toBe(5);
+  });
+
+  it('frees the slot once a parked hold expires', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.stubEnv('PF_MAX_CONCURRENT_HOLDS', '1');
+    vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
+
+    const slow = visitor('slow');
+    await dealHand(slow);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 5_000);
+    const after = await draw(slow);
+
+    expect(calls).toBe(1);
+    expect(after.reading).not.toBe(COLD_START_READING);
+  });
+
+  it('defaults the hold TTL to ten minutes', () => {
+    expect(config.holdTtlSeconds).toBe(600);
+    expect(config.maxConcurrentHolds).toBe(2);
+  });
+});
+
+describe('store failures', () => {
+  it.each(['setEx', 'incrBy', 'zCard'] as const)(
+    'still deals a hand when %s is unreachable',
+    async method => {
+      breakStore(method);
+      const dealt = await dealHand(visitor('offline'));
+
+      expect(dealt.hand).toHaveLength(5);
+      expect(dealt.token.length).toBeGreaterThan(0);
+    }
+  );
+
+  it('resolves an unwritable hold to the cold-start reading', async () => {
+    breakStore('setEx');
+    const dealt = await dealHand(visitor('offline'));
+
+    expect(await resolveReading(dealt.token)).toBe(COLD_START_READING);
+    expect(calls).toBe(0);
+  });
+
+  it.each(['rPush', 'setEx'] as const)(
+    'keeps a paid-for reading when %s fails after generation',
+    async method => {
+      const dealt = await dealHand(visitor('paid'));
+      breakStore(method);
+
+      const text = await resolveReading(dealt.token);
+
+      expect(calls).toBe(1);
+      expect(text).toBe(reading(1));
+    }
+  );
+
+  it('leaves the reservation charged when settlement fails', async () => {
+    const dealt = await dealHand(visitor('paid'));
+    breakStore('rPush');
+    await resolveReading(dealt.token);
+
+    expect((await budgetStatus()).spentMicros).toBe(10_000);
   });
 });
 

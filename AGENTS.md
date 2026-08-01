@@ -29,10 +29,16 @@ break without noticing:
   essentially never repeats, so that lookup would miss every time.
 - **Budget is reserved before the OpenAI call, not after.** The reserve is one
   atomic `INCRBY`; check-then-call lets a concurrent burst through the cap.
+- **A reservation is settled against the month it was charged to**, carried on
+  the hold rather than resolved at settle time — otherwise a hold that outlives
+  midnight UTC on the 1st refunds into the new month and raises its cap.
 
 Tuning is env-only, all optional with defaults (`src/server/config.ts`):
 `PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
-`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_CACHE_MAX`, `PF_HOLD_TTL_SECONDS`.
+`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_CACHE_MAX`, `PF_HOLD_TTL_SECONDS`,
+`PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the "never generate live"
+kill switch; `PF_READING_BUDGET_USD` must be positive and falls back to its
+default otherwise, because a zero reservation would disable the cap entirely.
 `GET /api/status` reports mode, spend, and cache size.
 
 Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the

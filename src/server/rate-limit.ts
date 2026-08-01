@@ -31,6 +31,13 @@ const currentWindow = () =>
   Math.floor(Date.now() / (config.rateWindowSeconds * 1000));
 
 /**
+ * The (IP, cookie) pair as one opaque key. Shared with the budget's concurrent
+ * hold bound so both throttles agree on who a visitor is.
+ */
+export const visitorIdentity = (visitor: Visitor) =>
+  digest(`${visitor.ip}|${visitor.visitorId}`);
+
+/**
  * Returns true when this visitor may still consume live budget. Both counters
  * are always incremented so a visitor cannot dodge the per-IP tally by hitting
  * the per-visitor limit first.
@@ -41,10 +48,7 @@ export async function withinRateLimit(visitor: Visitor): Promise<boolean> {
   const ttl = config.rateWindowSeconds;
 
   const [perVisitor, perIp] = await Promise.all([
-    store.incrWithTtl(
-      `pf:rl:v:${digest(`${visitor.ip}|${visitor.visitorId}`)}:${window}`,
-      ttl
-    ),
+    store.incrWithTtl(`pf:rl:v:${visitorIdentity(visitor)}:${window}`, ttl),
     store.incrWithTtl(`pf:rl:i:${digest(visitor.ip)}:${window}`, ttl),
   ]);
 

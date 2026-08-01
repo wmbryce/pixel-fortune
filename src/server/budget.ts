@@ -19,48 +19,147 @@ import { getStore } from './store';
 
 const HOLDS_KEY = 'pf:holds';
 
-const spendKey = (now = new Date()) =>
-  `pf:spend:${now.toISOString().slice(0, 7)}`;
+/** How many expired holds one sweep reclaims, so a backlog cannot stall a deal. */
+const SWEEP_BATCH = 100;
+
+/**
+ * A reservation carries the month and amount it was charged to, so it is
+ * always settled against the counter it actually moved. Resolving the month at
+ * settle time instead would credit a refund to the wrong month whenever a hold
+ * outlives midnight UTC on the 1st, which quietly raises the new month's cap.
+ */
+export type Reservation = {
+  month: string;
+  identity: string;
+  micros: number;
+  token: string;
+};
+
+const monthOf = (now: Date) => now.toISOString().slice(0, 7);
+
+const spendKey = (month: string) => `pf:spend:${month}`;
+
+/** Unresolved holds for one rate-limit identity, scored by expiry. */
+const identityHoldsKey = (identity: string) => `pf:holds:id:${identity}`;
+
+// `|` cannot occur in a month, a hex digest, an integer, or a UUID.
+const holdMember = (r: Reservation) =>
+  `${r.month}|${r.identity}|${r.micros}|${r.token}`;
+
+const parseHoldMember = (member: string): Reservation | null => {
+  const [month, identity, micros, token] = member.split('|');
+  if (!month || !identity || !token || !Number.isFinite(Number(micros))) {
+    return null;
+  }
+  return { month, identity, micros: Number(micros), token };
+};
 
 /**
  * Reservations that were never spent are refunded here. Without this an
  * abandoned draw would eat its reservation forever, and hammering the (free)
  * draw endpoint would exhaust the month's cap without generating a reading.
- * `ZREMRANGEBYSCORE` is atomic and reports how many members *this* caller
- * removed, so a refund can never be applied twice.
+ * Each member is removed with `ZREM`, which reports whether *this* caller
+ * removed it, so a refund can never be applied twice.
  */
 export async function sweepExpiredHolds(): Promise<number> {
   const store = getStore();
-  const expired = await store.zRemRangeByScore(HOLDS_KEY, 0, Date.now());
-  if (expired > 0) {
-    await store.incrBy(spendKey(), -expired * config.readingBudgetMicros);
+  const expired = await store.zRangeByScore(
+    HOLDS_KEY,
+    0,
+    Date.now(),
+    SWEEP_BATCH
+  );
+  if (expired.length === 0) return 0;
+
+  const claimed = await Promise.all(
+    expired.map(async member =>
+      (await store.zRem(HOLDS_KEY, member)) === 1
+        ? parseHoldMember(member)
+        : null
+    )
+  );
+
+  const refunds = new Map<string, number>();
+  const reclaimed: Reservation[] = [];
+  for (const reservation of claimed) {
+    if (!reservation) continue;
+    reclaimed.push(reservation);
+    refunds.set(
+      reservation.month,
+      (refunds.get(reservation.month) ?? 0) + reservation.micros
+    );
   }
-  return expired;
+
+  await Promise.all([
+    ...[...refunds].map(([month, micros]) =>
+      store.incrBy(spendKey(month), -micros)
+    ),
+    ...reclaimed.map(r => store.zRem(identityHoldsKey(r.identity), r.token)),
+  ]);
+
+  return reclaimed.length;
 }
 
 /**
- * Reserves one reading's budget against the cap. Returns the hold token when
- * the reservation fits, or null when the cap is reached and the caller must
- * serve from cache instead.
+ * Reserves one reading's budget against the cap. Returns the reservation when
+ * it fits, or null when the caller must serve from cache instead.
+ *
+ * Unresolved holds are also bounded per identity. A real visitor has one
+ * reading in flight; without this bound a handful of identities could park the
+ * whole reservation pool for the hold TTL and pin the site in cached mode
+ * without ever spending a cent. Exceeding it demotes, exactly like the rate
+ * limit — it is never an error.
  */
-export async function reserveReading(token: string): Promise<boolean> {
+export async function reserveReading(
+  token: string,
+  identity: string
+): Promise<Reservation | null> {
   const store = getStore();
-  const budget = config.readingBudgetMicros;
-  const total = await store.incrBy(spendKey(), budget);
+  const now = Date.now();
+  const identityKey = identityHoldsKey(identity);
+
+  await store.zRemRangeByScore(identityKey, 0, now);
+  if ((await store.zCard(identityKey)) >= config.maxConcurrentHolds) return null;
+
+  const reservation: Reservation = {
+    month: monthOf(new Date(now)),
+    identity,
+    micros: config.readingBudgetMicros,
+    token,
+  };
+
+  const total = await store.incrBy(
+    spendKey(reservation.month),
+    reservation.micros
+  );
   if (total > config.monthlyCapMicros) {
-    await store.incrBy(spendKey(), -budget);
-    return false;
+    await store.incrBy(spendKey(reservation.month), -reservation.micros);
+    return null;
   }
-  await store.zAdd(HOLDS_KEY, Date.now() + config.holdTtlSeconds * 1000, token);
-  return true;
+
+  const expiresAt = now + config.holdTtlSeconds * 1000;
+  await store.zAdd(HOLDS_KEY, expiresAt, holdMember(reservation));
+  await store.zAdd(identityKey, expiresAt, token);
+  await store.expire(identityKey, config.holdTtlSeconds);
+  return reservation;
 }
 
 /**
  * Claims a live reservation. Exactly one caller can claim a given token, which
  * is what stops a replayed token from buying a second generation.
  */
-export async function claimReservation(token: string): Promise<boolean> {
-  return (await getStore().zRem(HOLDS_KEY, token)) === 1;
+export async function claimReservation(
+  reservation: Reservation
+): Promise<boolean> {
+  const store = getStore();
+  const claimed = (await store.zRem(HOLDS_KEY, holdMember(reservation))) === 1;
+  if (claimed) {
+    await store.zRem(
+      identityHoldsKey(reservation.identity),
+      reservation.token
+    );
+  }
+  return claimed;
 }
 
 /**
@@ -68,17 +167,22 @@ export async function claimReservation(token: string): Promise<boolean> {
  * is capped at the reservation so a mispriced model can never push past the
  * ceiling; an unknown model prices at the full reservation.
  */
-export async function commitReading(actualMicros: number | null) {
-  const budget = config.readingBudgetMicros;
-  const charged = Math.min(actualMicros ?? budget, budget);
-  if (charged !== budget) {
-    await getStore().incrBy(spendKey(), charged - budget);
+export async function commitReading(
+  reservation: Reservation,
+  actualMicros: number | null
+) {
+  const charged = Math.min(actualMicros ?? reservation.micros, reservation.micros);
+  if (charged !== reservation.micros) {
+    await getStore().incrBy(
+      spendKey(reservation.month),
+      charged - reservation.micros
+    );
   }
 }
 
 /** Gives a reservation back when the generation failed and cost nothing. */
-export async function refundReservation() {
-  await getStore().incrBy(spendKey(), -config.readingBudgetMicros);
+export async function refundReservation(reservation: Reservation) {
+  await getStore().incrBy(spendKey(reservation.month), -reservation.micros);
 }
 
 export type BudgetStatus = {
@@ -90,11 +194,12 @@ export type BudgetStatus = {
 };
 
 export async function budgetStatus(): Promise<BudgetStatus> {
-  const spentMicros = Number((await getStore().get(spendKey())) ?? 0);
+  const month = monthOf(new Date());
+  const spentMicros = Number((await getStore().get(spendKey(month))) ?? 0);
   const capMicros = config.monthlyCapMicros;
   const remainingMicros = Math.max(capMicros - spentMicros, 0);
   return {
-    month: spendKey().slice('pf:spend:'.length),
+    month,
     spentMicros,
     capMicros,
     remainingMicros,

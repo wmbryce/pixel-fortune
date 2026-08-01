@@ -1,5 +1,4 @@
 import { CardType } from "@/types";
-import { createTarotDeck } from "./deck";
 import { config } from "../config";
 import OpenAI from "openai";
 
@@ -45,14 +44,15 @@ export type GeneratedFortune = {
  * reservation assumes a bounded completion, so the request has to enforce that
  * bound. Whoever changes the model (#12) may need the newer
  * `max_completion_tokens` spelling — the cap depends on one of the two being set.
+ *
+ * The hand is required: it always comes from the server-side hold, never from
+ * the client.
  */
 export const generateFortune = async (
-  tarotHand?: CardType[]
+  tarotHand: CardType[]
 ): Promise<GeneratedFortune | null> => {
-  const hand = tarotHand ?? createTarotDeck().slice(0, 5);
-
   const response = await getOpenAIClient().chat.completions.create({
-    messages: [{ role: "user", content: generateFortunePrompt(hand) }],
+    messages: [{ role: "user", content: generateFortunePrompt(tarotHand) }],
     model: FORTUNE_MODEL,
     max_tokens: config.maxOutputTokens,
   });

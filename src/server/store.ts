@@ -27,10 +27,18 @@ export interface Store {
   setEx(key: string, value: string, ttlSeconds: number): Promise<void>;
   /** Fixed-window counter: increments and (re)arms the window on first use. */
   incrWithTtl(key: string, ttlSeconds: number): Promise<number>;
+  expire(key: string, ttlSeconds: number): Promise<void>;
   zAdd(key: string, score: number, member: string): Promise<void>;
   /** Returns 1 when this caller removed the member, 0 when someone else already had. */
   zRem(key: string, member: string): Promise<number>;
   zRemRangeByScore(key: string, min: number, max: number): Promise<number>;
+  zRangeByScore(
+    key: string,
+    min: number,
+    max: number,
+    limit?: number
+  ): Promise<string[]>;
+  zCard(key: string): Promise<number>;
   rPush(key: string, value: string): Promise<number>;
   lTrim(key: string, start: number, stop: number): Promise<void>;
   lLen(key: string): Promise<number>;
@@ -75,6 +83,10 @@ function createRedisStore({
     const result = await send(command);
     return result === null || result === undefined ? null : String(result);
   };
+  const list = async (command: (string | number)[]) => {
+    const result = await send(command);
+    return Array.isArray(result) ? result.map(String) : [];
+  };
 
   return {
     kind: 'redis',
@@ -88,12 +100,22 @@ function createRedisStore({
       if (value === 1) await send(['EXPIRE', key, ttl]);
       return value;
     },
+    expire: async (key, ttl) => {
+      await send(['EXPIRE', key, ttl]);
+    },
     zAdd: async (key, score, member) => {
       await send(['ZADD', key, score, member]);
     },
     zRem: (key, member) => num(['ZREM', key, member]),
     zRemRangeByScore: (key, min, max) =>
       num(['ZREMRANGEBYSCORE', key, min, max]),
+    zRangeByScore: (key, min, max, limit) =>
+      list(
+        limit === undefined
+          ? ['ZRANGEBYSCORE', key, min, max]
+          : ['ZRANGEBYSCORE', key, min, max, 'LIMIT', 0, limit]
+      ),
+    zCard: key => num(['ZCARD', key]),
     rPush: (key, value) => num(['RPUSH', key, value]),
     lTrim: async (key, start, stop) => {
       await send(['LTRIM', key, start, stop]);
@@ -109,6 +131,7 @@ function createMemoryStore(): Store & { clear(): void } {
   const strings = new Map<string, MemoryEntry>();
   const lists = new Map<string, string[]>();
   const zsets = new Map<string, Map<string, number>>();
+  const zsetExpiry = new Map<string, number>();
 
   const live = (key: string) => {
     const entry = strings.get(key);
@@ -120,12 +143,22 @@ function createMemoryStore(): Store & { clear(): void } {
     return entry;
   };
 
+  const liveZset = (key: string) => {
+    const expiresAt = zsetExpiry.get(key);
+    if (expiresAt !== undefined && expiresAt <= Date.now()) {
+      zsets.delete(key);
+      zsetExpiry.delete(key);
+    }
+    return zsets.get(key) ?? null;
+  };
+
   return {
     kind: 'memory',
     clear() {
       strings.clear();
       lists.clear();
       zsets.clear();
+      zsetExpiry.clear();
     },
     async incrBy(key, by) {
       const entry = live(key);
@@ -148,16 +181,22 @@ function createMemoryStore(): Store & { clear(): void } {
       });
       return next;
     },
+    async expire(key, ttl) {
+      const at = Date.now() + ttl * 1000;
+      const entry = strings.get(key);
+      if (entry) entry.expiresAt = at;
+      if (zsets.has(key)) zsetExpiry.set(key, at);
+    },
     async zAdd(key, score, member) {
-      const set = zsets.get(key) ?? new Map<string, number>();
+      const set = liveZset(key) ?? new Map<string, number>();
       set.set(member, score);
       zsets.set(key, set);
     },
     async zRem(key, member) {
-      return zsets.get(key)?.delete(member) ? 1 : 0;
+      return liveZset(key)?.delete(member) ? 1 : 0;
     },
     async zRemRangeByScore(key, min, max) {
-      const set = zsets.get(key);
+      const set = liveZset(key);
       if (!set) return 0;
       let removed = 0;
       for (const [member, score] of [...set]) {
@@ -167,6 +206,18 @@ function createMemoryStore(): Store & { clear(): void } {
         }
       }
       return removed;
+    },
+    async zRangeByScore(key, min, max, limit) {
+      const set = liveZset(key);
+      if (!set) return [];
+      const members = [...set]
+        .filter(([, score]) => score >= min && score <= max)
+        .sort((a, b) => a[1] - b[1])
+        .map(([member]) => member);
+      return limit === undefined ? members : members.slice(0, limit);
+    },
+    async zCard(key) {
+      return liveZset(key)?.size ?? 0;
     },
     async rPush(key, value) {
       const list = lists.get(key) ?? [];

@@ -19,17 +19,27 @@ const intEnv = (name: string, fallback: number) => {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : fallback;
 };
 
+const DEFAULT_READING_BUDGET_USD = 0.01;
+
 export const config = {
-  /** Ceiling on live generation per calendar month. */
+  /** Ceiling on live generation per calendar month. Zero is the kill switch. */
   get monthlyCapMicros() {
     return usdEnv('PF_MONTHLY_CAP_USD', 5);
   },
   /**
    * What one reading may cost. Reserved up front, reconciled down to the real
    * usage afterwards. Also the ceiling ticket #12 has to pick a model under.
+   *
+   * Must be strictly positive: a zero reservation increments the spend counter
+   * by nothing, so the cap would never be reached and every request would run
+   * live. `Number('') === 0`, so a defined-but-blank env var would otherwise
+   * disable the whole cap silently.
    */
   get readingBudgetMicros() {
-    return usdEnv('PF_READING_BUDGET_USD', 0.01);
+    const micros = usdEnv('PF_READING_BUDGET_USD', DEFAULT_READING_BUDGET_USD);
+    return micros > 0
+      ? micros
+      : Math.round(DEFAULT_READING_BUDGET_USD * MICROS_PER_USD);
   },
   /** Hard stop on completion length, so a runaway generation cannot outspend its reservation. */
   get maxOutputTokens() {
@@ -52,10 +62,20 @@ export const config = {
   },
   /**
    * How long a reservation survives between the draw and the reading. The arc
-   * takes a couple of minutes; an hour covers a distracted visitor, and past
-   * that the reservation is refunded rather than left to rot against the cap.
+   * takes a couple of minutes; ten covers a distracted visitor, and past that
+   * the reservation is refunded rather than left to rot against the cap. Kept
+   * short because an outstanding hold is budget nobody else can spend.
    */
   get holdTtlSeconds() {
-    return intEnv('PF_HOLD_TTL_SECONDS', 3600);
+    return intEnv('PF_HOLD_TTL_SECONDS', 600);
+  },
+  /**
+   * Unresolved holds one identity may have at once. A real visitor has exactly
+   * one reading in flight, so anything above this is abuse — and bounding it is
+   * what stops a few identities parking the whole reservation pool, which a
+   * short TTL alone only makes more tedious.
+   */
+  get maxConcurrentHolds() {
+    return intEnv('PF_MAX_CONCURRENT_HOLDS', 2);
   },
 } as const;
