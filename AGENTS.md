@@ -35,10 +35,11 @@ break without noticing:
 
 Tuning is env-only, all optional with defaults (`src/server/config.ts`):
 `PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
-`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_CACHE_MAX`, `PF_HOLD_TTL_SECONDS`,
-`PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the "never generate live"
-kill switch; `PF_READING_BUDGET_USD` must be positive and falls back to its
-default otherwise, because a zero reservation would disable the cap entirely.
+`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`,
+`PF_HOLD_TTL_SECONDS`, `PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the
+"never generate live" kill switch; `PF_READING_BUDGET_USD` must be positive and
+falls back to its default otherwise, because a zero reservation would disable
+the cap entirely.
 
 Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
 `KV_REST_API_*` names Vercel injects). With neither set the store falls back to
