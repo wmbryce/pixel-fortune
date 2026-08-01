@@ -1,6 +1,6 @@
 # Animation audit
 
-Stamped at `ab1a15d`. Resolves [#10](https://github.com/wmbryce/pixel-fortune/issues/10).
+Stamped at `a87d190`. Resolves [#10](https://github.com/wmbryce/pixel-fortune/issues/10).
 
 Audited against the eight categories in the `improve-animations` playbook (Emil Kowalski's motion philosophy). Every finding below was re-read at its `file:line` before being listed.
 
