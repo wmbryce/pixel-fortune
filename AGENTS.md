@@ -110,6 +110,41 @@ an interrupted flip cannot strand the card off the table; it is clamped to
 is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
 bounce to express. Decided in #13, which measured the alternatives.
 
+## The spread is measured, not set by breakpoints
+
+`CardTable.tsx` measures its stage and calls `planSpread`, which builds both
+candidates — five across and 2+3 — and takes the one that actually yields the
+larger card without overflowing, never a single threshold: on a short wide
+stage 2+3 comes back both smaller *and* taller. Breakpoints cannot express the
+binding constraint either, which is vertical: two rows above the dialog box's
+fixed 256px. Three things follow, and all are easy to undo by accident:
+
+- **The dialog's strip is reserved from the start** in `tarot/page.tsx`
+  (`h-[292px]`, broken down in the comment there). Letting it size to content
+  makes every card resize when the box opens.
+- **The caption row is dropped below a 64px card** (`showsLabel` in `Card.tsx`).
+  It is the difference between the spread fitting a 568px-tall viewport and not,
+  and `fitCard` solves the fit twice so its answer agrees with what `Card` will
+  actually render. `test/spread-layout.test.ts` pins both.
+- **No plan may paint outside the stage.** `gridTop` is clamped at 0, the stage
+  reserves `plan.height` as `minHeight`, and `tarot/layout.tsx` is
+  `min-h-[100dvh]` — together they let a landscape phone (a 66px stage) scroll
+  to the cards instead of stranding them over the header and the dialog.
+
+Reveals can arrive in one batch, so `UpdateRevealCard` builds the next array
+from a ref rather than from state — otherwise each reveal in the batch reads the
+same stale array and only the last survives (`test/card-table.test.tsx`).
+Decided in #14, which compared five layouts.
+
+## The tarot background is 16:9 and a phone is not
+
+`src/app/tarot/background.css`; its header comment carries the reasoning and the
+measurements. The one fact the file cannot show: `#0d0e24` is the illustration's
+own border colour, sampled from its corners, which is why filling beyond the art
+with it reads as an extension rather than a letterbox. Neither `cover` nor
+`contain` works below 4:3 — one crops the tableau away, the other downscales
+pixel art 4.6x. Decided in #14.
+
 ## TypeScript ceiling
 
 The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),

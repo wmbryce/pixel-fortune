@@ -1,0 +1,21 @@
+/* The continue affordance is a keypress on a desktop and a tap on a phone, so
+   both strings are rendered and the input capability picks one. A media query
+   rather than a user-agent guess or a post-hydration effect: it is right in the
+   first paint, and right again if a keyboard is attached later.
+
+   The test is for a touch-primary device, not for a desktop one, so it fails
+   safe: anything that does not report a coarse pointer — including a device
+   that reports no pointer at all — gets the keyboard copy, and the keyboard
+   handler is always bound. Touch advances the page either way. */
+.only-touch {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .only-touch {
+    display: inline;
+  }
+  .only-pointer {
+    display: none;
+  }
+}
