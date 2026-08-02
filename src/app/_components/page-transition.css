@@ -1,0 +1,36 @@
+/* The page entrance is CSS rather than motion's `initial`, and that is the
+   whole point of the file. The server cannot read `prefers-reduced-motion` and
+   cannot know whether the bundle will arrive, so a motion-owned entrance ships
+   every document with `opacity: 0` inline on `<main>` and makes "is anything on
+   screen" depend on hydration. Keyframes only ever animate *from* a hidden
+   state, so a document that never hydrates is simply visible, and the media
+   query gets the reduced-motion substitute for free.
+
+   The numbers mirror `DURATION.page`, `DURATION.crossfade` and `EASE_OUT` in
+   `src/app/_libs/motion.ts`, which stays the source of truth for the exit those
+   values also drive. They are restated here because the entrance has to render
+   before any JavaScript can read them. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+/* Same seam, no travel. */
+@keyframes page-enter-reduced {
+  from {
+    opacity: 0;
+  }
+}
+
+.page-enter {
+  animation: page-enter 240ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation-name: page-enter-reduced;
+    animation-duration: 200ms;
+  }
+}

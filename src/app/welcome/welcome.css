@@ -11,6 +11,36 @@
   display: none;
 }
 
+/* The only perpetual motion in the app (audit finding #14). Reduced motion
+   keeps the hint and loses the blink — the affordance is the message, the
+   pulsing was only ever decoration. Declared here rather than as a Tailwind
+   animation so the media query has something to override. */
+@keyframes hint-blink {
+  0%,
+  20%,
+  80%,
+  100% {
+    opacity: 0;
+  }
+  25%,
+  50%,
+  75% {
+    opacity: 1;
+  }
+}
+
+.continue-hint {
+  opacity: 0;
+  animation: hint-blink 2s infinite 2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .continue-hint {
+    opacity: 1;
+    animation: none;
+  }
+}
+
 @media (hover: none) and (pointer: coarse) {
   .only-touch {
     display: inline;

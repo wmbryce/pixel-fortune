@@ -110,6 +110,55 @@ an interrupted flip cannot strand the card off the table; it is clamped to
 is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
 bounce to express. Decided in #13, which measured the alternatives.
 
+## Motion comes from tokens, and reduced motion is a cross-fade
+
+`src/app/_libs/motion.ts` owns every spring and duration in the app; nothing
+else may hand-type one. `useReducedMotion()` is read in `Card`, `CardTable`,
+`DialogBox` and `PageTransition`, and each one substitutes `CROSSFADE` for its
+spring rather than disabling the animation — the card stops turning but the back
+still fades off it, the deal keeps its beat but each card fades up in its seat,
+and hover and press dim instead of lifting. A blanket disable is the failure
+mode `test/reduced-motion.test.tsx` exists to catch. Decided in #15.
+
+A reduced variant must restate every key its full-motion twin can put on screen.
+`useReducedMotion()` is false on the server, so every document ships the
+full-motion `initial` inline; a key the reduced set omits is one the client
+never writes back, and the page keeps a value it never asked for.
+`test/page-transition.test.tsx` pins it.
+
+Route changes go through `PageTransition` (`usePageLeave(href, direction)`),
+which renders the page's own `<main>` and holds `router.push` until the exit has
+played. Calling `router.push` directly from a screen is the hard swap it
+replaced. Three parts of it are load-bearing and none is decoration:
+
+- **The entrance is CSS** (`_components/page-transition.css`), not motion's
+  `initial`. `initial` is the only state the server can inline, so it has to be
+  the visible one — a motion-owned entrance ships every document with
+  `opacity: 0` on `<main>` and makes the page appear only once it hydrates. The
+  media query gives that entrance its reduced-motion form for free. The class is
+  dropped once the exit starts, because a running CSS animation outranks
+  motion's inline styles — so the exit seeds itself with the opacity that was
+  actually on screen, or interrupting the entrance would jump to full
+  brightness before fading. Its durations and easing are restated from the
+  tokens (a stylesheet cannot import them) and pinned against them in
+  `test/page-transition.test.tsx`.
+- **Every screen declares what it can leave to** (`prefetch={LEAVES_TO}`, warmed
+  on mount). The exit is ~240ms; that is not a head start a cold route arrives
+  inside.
+- **`loading.tsx` under each route** is what the App Router shows while the
+  destination resolves. The push fires *after* the outgoing screen has faded to
+  nothing, so without a boundary a cold hop is a blank screen for the whole
+  fetch — worse than the hard swap this replaced.
+
+Two testing consequences:
+
+- **jsdom ships no `matchMedia`**, so `test/setup.ts` installs one that answers
+  false to everything.
+- **`motion` reads the preference once, lazily, on the first `useReducedMotion`
+  in a module graph.** A spec wanting the reduced answer must stub `matchMedia`
+  before its first render and cannot share a file with one rendering under the
+  default.
+
 ## The spread is measured, not set by breakpoints
 
 `CardTable.tsx` measures its stage and calls `planSpread`, which builds both

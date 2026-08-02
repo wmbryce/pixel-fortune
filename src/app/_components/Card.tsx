@@ -8,8 +8,11 @@ import {
   motion,
   HTMLMotionProps,
   useMotionValue,
+  useReducedMotion,
   useTransform,
 } from 'motion/react';
+import { useHoverCapable } from '../_libs/media';
+import { CROSSFADE, DIM, SPRING } from '../_libs/motion';
 
 interface Props extends HTMLMotionProps<'div'> {
   id: string;
@@ -20,9 +23,6 @@ interface Props extends HTMLMotionProps<'div'> {
   reveal?: boolean;
   setReveal: (value: number) => void;
 }
-
-const FLIP = { type: 'spring', bounce: 0, duration: 0.4 } as const;
-const HOVER = { type: 'spring', bounce: 0, duration: 0.2 } as const;
 
 /** `p-2` on the white frame plus `p-2` on the tint, both sides. */
 export const CHROME = 32;
@@ -45,13 +45,20 @@ export const cardCell = (width: number) => ({
 
 export default function Card(props: Props) {
   const { id, data, reveal, width } = props;
+  const reduced = useReducedMotion() ?? false;
+  const hoverable = useHoverCapable();
 
   // The back faces the viewer at 0deg and the front at 180deg, so the card
   // turns back along the axis it came from.
   const rotateY = useMotionValue(0);
+  // Under reduced motion the card does not turn at all; the back cross-fades
+  // off the front, which is stacked underneath it. Rotation is the travel that
+  // the preference asks us to drop — the reveal itself is not.
+  const backOpacity = useMotionValue(1);
   // Lift derived from the rotation rather than scheduled beside it: an
   // interrupted flip cannot leave the card stranded off the table. Clamped to
   // the flip's own range so an overshoot could never invert it into a dip.
+  // It comes out at 0 under reduced motion, because the rotation stays at 0.
   const lift = useTransform(rotateY, r =>
     Math.sin((Math.min(Math.max(r, 0), 180) * Math.PI) / 180)
   );
@@ -59,22 +66,26 @@ export default function Card(props: Props) {
   const z = useTransform(lift, l => 40 * l);
 
   useEffect(() => {
-    const controls = animate(rotateY, reveal ? 180 : 0, FLIP);
+    const controls = reduced
+      ? animate(backOpacity, reveal ? 0 : 1, CROSSFADE)
+      : animate(rotateY, reveal ? 180 : 0, SPRING.flip);
     return () => controls.stop();
-  }, [reveal, rotateY]);
+  }, [reduced, reveal, rotateY, backOpacity]);
 
   const revealCard = () => {
     if (!reveal) props.setReveal(props.index);
   };
 
+  // Colour and opacity only, so these read the same either way and take the
+  // cross-fade token unconditionally.
   const backgroundVariants = {
-    hidden: { backgroundColor: '#0B001200' },
-    visible: { backgroundColor: '#0B0012B0' },
+    hidden: { backgroundColor: '#0B001200', transition: CROSSFADE },
+    visible: { backgroundColor: '#0B0012B0', transition: CROSSFADE },
   };
 
   const textVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
+    hidden: { opacity: 0, transition: CROSSFADE },
+    visible: { opacity: 1, transition: CROSSFADE },
   };
 
   const artHeight = Math.round(width * 1.5);
@@ -92,17 +103,35 @@ export default function Card(props: Props) {
         <motion.div
           id={props.id}
           onClick={revealCard}
-          whileHover={{ y: -10, transition: HOVER }}
-          whileTap={{ y: -4, transition: HOVER }}
+          // Both pointer states survive reduced motion as a dim rather than a
+          // lift, the shallower one for hover: feedback that registers nothing
+          // at all is the one thing a disable would cost. Still gated on the
+          // device having a hover, because a tap fires pointer-enter too.
+          whileHover={
+            hoverable
+              ? reduced
+                ? { opacity: DIM.hover, transition: CROSSFADE }
+                : { y: -10, transition: SPRING.nudge }
+              : undefined
+          }
+          whileTap={
+            reduced
+              ? { opacity: DIM.press, transition: CROSSFADE }
+              : { y: -4, transition: SPRING.nudge }
+          }
           style={{ transformStyle: 'preserve-3d', rotateY, scale, z }}
           className={cn('relative select-none', props.className)}
         >
           <div
             className="bg-white rounded-md p-2"
-            style={{
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-            }}
+            // Pre-rotated so the flip lands on it. Reduced motion never turns
+            // the card, so the front has to face the viewer from the start and
+            // let the back fade off it instead.
+            style={
+              reduced
+                ? undefined
+                : { backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }
+            }
           >
             <div
               className="relative"
@@ -117,9 +146,13 @@ export default function Card(props: Props) {
               />
             </div>
           </div>
-          <div
+          <motion.div
+            id={'back.' + id}
             className="absolute inset-0 bg-white rounded-md p-2"
-            style={{ backfaceVisibility: 'hidden' }}
+            style={{
+              backfaceVisibility: reduced ? 'visible' : 'hidden',
+              opacity: reduced ? backOpacity : 1,
+            }}
           >
             <div className="relative w-full h-full">
               <Image
@@ -130,7 +163,7 @@ export default function Card(props: Props) {
                 sizes={`${Math.ceil(width)}px`}
               />
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
       {showsLabel(width) && (
