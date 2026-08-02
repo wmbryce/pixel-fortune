@@ -120,6 +120,12 @@ still fades off it, the deal keeps its beat but each card fades up in its seat,
 and hover and press dim instead of lifting. A blanket disable is the failure
 mode `test/reduced-motion.test.tsx` exists to catch. Decided in #15.
 
+A reduced variant must restate every key its full-motion twin can put on screen.
+`useReducedMotion()` is false on the server, so every document ships the
+full-motion `initial` inline; a key the reduced set omits is one the client
+never writes back, and the page keeps a value it never asked for.
+`test/page-transition.test.tsx` pins it.
+
 Route changes go through `PageTransition` (`usePageLeave(href, direction)`),
 which renders the page's own `<main>` and holds `router.push` until the exit has
 played. Calling `router.push` directly from a screen is the hard swap it
