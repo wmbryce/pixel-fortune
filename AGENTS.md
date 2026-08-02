@@ -96,6 +96,20 @@ dialog box's job. It used to cap each page at 1000 characters against a
 no Continue button. Regression tests: `test/typing-text.test.tsx` and the long
 page case in `test/dialog-box-race.test.tsx`.
 
+## The card reveal is a flip, so both faces are always mounted
+
+`Card.tsx` turns the card on `rotateY` (back at 0deg, front at 180deg) with
+`backface-visibility: hidden`. The old reveal cross-faded the back *out of the
+tree*, so "is the card back in the DOM?" used to answer "is this card hidden?" —
+it no longer does, and a test that assumes it passes on a card that never turns.
+Assert the rotation instead (`test/card-reveal.test.tsx`).
+
+The scale/z lift is derived from the rotation value, not scheduled beside it, so
+an interrupted flip cannot strand the card off the table; it is clamped to
+[0,180] because past 180 the sine inverts and the card visibly sinks. The spring
+is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
+bounce to express. Decided in #13, which measured the alternatives.
+
 ## TypeScript ceiling
 
 The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),
