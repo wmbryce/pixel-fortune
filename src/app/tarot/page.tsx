@@ -47,7 +47,8 @@ export default function Home() {
       {/* The dialog is a sibling of the card area, not an overlay on it: at its
           256px height it used to bury the bottom of the spread on a phone
           (#14). The strip is reserved from the start — 256px plus the box's own
-          `mt-6` — so opening it never resizes the cards. */}
+          `mt-6` plus this strip's `pb-3` — so opening it never resizes the
+          cards. */}
       <div className="h-[292px] shrink-0 px-3 pb-3 flex lg:px-[200px]">
         {showDialogBox && (
           <DialogBox

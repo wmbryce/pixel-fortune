@@ -112,18 +112,24 @@ bounce to express. Decided in #13, which measured the alternatives.
 
 ## The spread is measured, not set by breakpoints
 
-`CardTable.tsx` measures its stage and calls `planSpread` — five across while
-they stay usably large, 2+3 once they do not. Breakpoints cannot express the
-binding constraint, which is vertical: two rows above the dialog box's fixed
-256px. Two things follow, and both are easy to undo by accident:
+`CardTable.tsx` measures its stage and calls `planSpread`, which builds both
+candidates — five across and 2+3 — and takes the one that actually yields the
+larger card without overflowing, never a single threshold: on a short wide
+stage 2+3 comes back both smaller *and* taller. Breakpoints cannot express the
+binding constraint either, which is vertical: two rows above the dialog box's
+fixed 256px. Three things follow, and all are easy to undo by accident:
 
 - **The dialog's strip is reserved from the start** in `tarot/page.tsx`
-  (`h-[292px]` = 256 + the box's own `mt-6`). Letting it size to content makes
-  every card resize when the box opens.
+  (`h-[292px]`, broken down in the comment there). Letting it size to content
+  makes every card resize when the box opens.
 - **The caption row is dropped below a 64px card** (`showsLabel` in `Card.tsx`).
   It is the difference between the spread fitting a 568px-tall viewport and not,
-  and `planSpread` solves the fit twice so its answer agrees with what `Card`
-  will actually render. `test/spread-layout.test.ts` pins both.
+  and `fitCard` solves the fit twice so its answer agrees with what `Card` will
+  actually render. `test/spread-layout.test.ts` pins both.
+- **No plan may paint outside the stage.** `gridTop` is clamped at 0, the stage
+  reserves `plan.height` as `minHeight`, and `tarot/layout.tsx` is
+  `min-h-[100dvh]` — together they let a landscape phone (a 66px stage) scroll
+  to the cards instead of stranding them over the header and the dialog.
 
 Reveals can arrive in one batch, so `UpdateRevealCard` builds the next array
 from a ref rather than from state — otherwise each reveal in the batch reads the
