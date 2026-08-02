@@ -42,6 +42,18 @@ const widest = (plan: ReturnType<typeof planSpread>) =>
 const tall = (plan: ReturnType<typeof planSpread>) =>
   plan.rows.length * plan.cell.height + (plan.rows.length - 1) * GAP;
 
+/**
+ * The solver reserves a gutter of GAP outside the spread as well as between
+ * the cards, so this is the box a plan is actually solved against.
+ */
+const budget = (stage: { w: number; h: number }) => ({
+  w: stage.w - 2 * GAP,
+  h: stage.h - 2 * GAP,
+});
+
+/** What a stage no card size can exhaust returns: the solver's own ceiling. */
+const MAX_CARD = planSpread(4000, 4000).cardW;
+
 describe('planSpread', () => {
   it.each(STAGES)('keeps all five cards on the stage at $name', stage => {
     const plan = planSpread(stage.w, stage.h);
@@ -58,6 +70,24 @@ describe('planSpread', () => {
       expect(plan.cell).toEqual(cardCell(plan.cardW));
     }
   );
+
+  it.each(STAGES)('solves against the cell Card renders at $name', stage => {
+    // The solver works in card widths and `cardCell` turns those into pixels,
+    // so it has to spend Card's chrome and caption threshold, not a copy of
+    // them: with a copy the answer is no longer the largest card that fits,
+    // which is what one more pixel overflowing proves.
+    const plan = planSpread(stage.w, stage.h);
+    if (plan.cardW >= MAX_CARD) return;
+
+    const cols = Math.max(...plan.rows.map(r => r.length));
+    const bigger = cardCell(plan.cardW + 1);
+    const box = budget(stage);
+
+    expect(
+      cols * bigger.width + (cols - 1) * GAP > box.w ||
+        plan.rows.length * bigger.height + (plan.rows.length - 1) * GAP > box.h
+    ).toBe(true);
+  });
 
   it.each([...STAGES, ...SHORT_STAGES])(
     'picks a plan no alternative beats at $name',

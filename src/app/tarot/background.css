@@ -8,6 +8,10 @@
    whole tableau stays in frame at a magnification that suits pixel art, and a
    gradient carries it into the fill where the cards and the dialog sit.
 
+   At 4:3 and wider there is no fill to carry the art into, so `cover` runs
+   with no gradient over it — which is why the wide case restates the whole
+   `background-image` layer rather than only its size and position.
+
    `background-attachment: fixed` is gone. It bought nothing — the layout fits
    the viewport, so there is no scroll to decouple from — and it is a known
    source of scroll jank on iOS. */
@@ -32,11 +36,8 @@
 
 @media (min-aspect-ratio: 4/3) {
   .custom-background {
-    background-size:
-      auto,
-      cover;
-    background-position:
-      center,
-      center;
+    background-image: url('/assets/background/tarot_background_7.png');
+    background-size: cover;
+    background-position: center;
   }
 }

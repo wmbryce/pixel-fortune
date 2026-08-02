@@ -93,6 +93,23 @@ describe('CardTable', () => {
     );
   });
 
+  it('starts over when one five-card hand replaces another', async () => {
+    // The reset is keyed on the hand, not its size: a five-card hand replaced
+    // by five other cards would otherwise stay dealt and face-up, and the page
+    // would never hear that the new one had been revealed.
+    const { rerender, setAllRevealed } = await dealtTable();
+    act(() => {
+      for (let i = 0; i < 5; i++) card(i)?.click();
+    });
+
+    const next = HAND.map(c => ({ ...c, name: `${c.name} again` }));
+    rerender(<CardTable tarotHand={next} setAllRevealed={setAllRevealed} />);
+
+    expect(document.querySelectorAll('[id^="background.t-card-"]').length).toBe(
+      0
+    );
+  });
+
   it('does not report the hand revealed while a card is still down', async () => {
     const { setAllRevealed } = await dealtTable();
 

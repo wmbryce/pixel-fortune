@@ -11,7 +11,13 @@
  * width breakpoint can express that.
  */
 import { CardType } from '@/types';
-import Card, { cardCell } from './Card';
+import Card, {
+  CHROME,
+  LABEL_H,
+  LABEL_MIN_CARD,
+  cardCell,
+  showsLabel,
+} from './Card';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 
@@ -35,25 +41,29 @@ const SETTLE = { type: 'spring', bounce: 0, duration: 0.45 } as const;
 const ONE_ROW_MIN_CARD = 96;
 const MIN_CARD = 40;
 const MAX_CARD = 192;
-const LABEL_H = 22;
 
 /**
  * The largest card that fits `cols` x `rows` in the box. Solved twice because
  * the caption's row only exists above a threshold, and the second solve is
- * capped below it so the answer agrees with what `Card` will render.
+ * capped below it so the answer agrees with what `Card` will render. The
+ * chrome and that threshold come from `Card`, which owns them through
+ * `cardCell` — a solve against its own copy would target a size the cell does
+ * not have.
  */
 function fitCard(w: number, h: number, cols: number, rows: number): number {
   const solve = (label: number) =>
     Math.floor(
       Math.min(
-        (w - GAP * (cols + 1)) / cols - 32,
-        ((h - GAP * (rows + 1)) / rows - 32 - label) / 1.5
+        (w - GAP * (cols + 1)) / cols - CHROME,
+        ((h - GAP * (rows + 1)) / rows - CHROME - label) / 1.5
       )
     );
   const clamp = (v: number) => Math.max(MIN_CARD, Math.min(MAX_CARD, v));
 
   const captioned = solve(LABEL_H);
-  return captioned >= 64 ? clamp(captioned) : clamp(Math.min(solve(0), 63));
+  return showsLabel(captioned)
+    ? clamp(captioned)
+    : clamp(Math.min(solve(0), LABEL_MIN_CARD - 1));
 }
 
 export type SpreadPlan = {
@@ -131,10 +141,12 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const handSize = tarotHand?.length ?? 0;
 
   // Adjusted during render rather than in an effect, so a new hand is never
-  // dealt for a frame on top of the last one's progress.
-  const [handKey, setHandKey] = useState(handSize);
-  if (handKey !== handSize) {
-    setHandKey(handSize);
+  // dealt for a frame on top of the last one's progress. Keyed on the hand
+  // itself, not its size: five cards replaced by five others is still a new
+  // hand, and keying on the count would leave it dealt and face-up.
+  const [handKey, setHandKey] = useState(tarotHand);
+  if (handKey !== tarotHand) {
+    setHandKey(tarotHand);
     setDealt(0);
     setSettled(false);
     setRevealedCards(Array(5).fill(false));

@@ -25,15 +25,16 @@ const FLIP = { type: 'spring', bounce: 0, duration: 0.4 } as const;
 const HOVER = { type: 'spring', bounce: 0, duration: 0.2 } as const;
 
 /** `p-2` on the white frame plus `p-2` on the tint, both sides. */
-const CHROME = 32;
-const LABEL_H = 22;
+export const CHROME = 32;
+export const LABEL_H = 22;
 
 /**
  * The name is unreadable under a small card, and dropping its row is the
  * difference between the spread fitting a short viewport and not. Screen
  * readers still get the name from the front face's `alt`.
  */
-export const showsLabel = (width: number) => width >= 64;
+export const LABEL_MIN_CARD = 64;
+export const showsLabel = (width: number) => width >= LABEL_MIN_CARD;
 
 /** What a card occupies once framed, tinted and captioned. */
 export const cardCell = (width: number) => ({
