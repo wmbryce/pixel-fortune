@@ -35,6 +35,7 @@ export async function GET() {
     }),
   ]);
 
+  const perReading = config.readingBudget;
   const failures = storeFailures();
   const failedRecently =
     failures.last !== null &&
@@ -61,10 +62,14 @@ export async function GET() {
     capUsd: budget ? usd(budget.capMicros) : null,
     remainingUsd: budget ? usd(budget.remainingMicros) : null,
     readingsRemaining: budget
-      ? Math.floor(budget.remainingMicros / config.readingBudgetMicros)
+      ? Math.floor(budget.remainingMicros / perReading.micros)
       : null,
     cachedReadings: cached,
-    perReadingBudgetUsd: usd(config.readingBudgetMicros),
-    maxOutputTokens: config.maxOutputTokens,
+    // Derived, so the number reported here is the number the cap enforces.
+    perReadingBudgetUsd: usd(perReading.micros),
+    perReadingBudgetDerived: perReading.derived,
+    model: perReading.model,
+    maxPromptTokens: perReading.maxPromptTokens,
+    maxOutputTokens: perReading.maxOutputTokens,
   });
 }

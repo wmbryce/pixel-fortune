@@ -34,28 +34,40 @@ break without noticing:
   the hold rather than resolved at settle time — otherwise a hold that outlives
   midnight UTC on the 1st refunds into the new month and raises its cap.
 
-The per-reading budget is derived, not guessed: `gpt-4o-mini` at $0.15/$0.60 per
-M tokens, a prompt under 400 tokens and a 700-token completion ceiling, so
-$0.00048 worst case, reserved at $0.0006. The derivation lives on
-`DEFAULT_READING_BUDGET_USD` in `src/server/config.ts` and is asserted in
-`test/fortune-cost.test.ts` — change the model or `PF_MAX_OUTPUT_TOKENS` and
-both have to move together, plus the model's row in `src/server/pricing.ts`.
-That row is matched by prefix because a completion reports the dated snapshot
-(`gpt-4o-mini-2024-07-18`), never the alias the request sent.
+The per-reading reservation is **derived at runtime, never configured**: the
+price of `FORTUNE_MODEL` (`src/server/model.ts`) applied to `MAX_PROMPT_TOKENS`
+plus `PF_MAX_OUTPUT_TOKENS`, times `RESERVATION_MARGIN`. Today: `gpt-4o-mini` at
+$0.15/$0.60 per M tokens, 400 prompt + 700 completion tokens = $0.00048 worst
+case, reserved at $0.0006. There is deliberately no `PF_READING_BUDGET_USD` —
+the settle step caps the charge at the reservation, so a token ceiling raised on
+its own would book a call at less than it cost and silently overspend the month.
+One knob, and the money follows it. Asserted in `test/fortune-cost.test.ts`.
+
+Consequences worth knowing before touching it:
+
+- `src/server/pricing.ts` owns `MICROS_PER_USD` and is a leaf, because
+  `config.ts` derives the reservation from it. Don't make it import the config
+  back.
+- A model with no row there cannot be derived, so the reservation falls back to
+  `UNPRICED_READING_BUDGET_USD` ($0.01) and `/api/status` reports
+  `perReadingBudgetDerived: false`. Change `FORTUNE_MODEL`, add its row.
+- Rows match by **longest** prefix, because a completion reports the dated
+  snapshot (`gpt-4o-mini-2024-07-18`), never the alias the request sent — and
+  `gpt-4o` is a prefix of every mini snapshot.
 
 Tuning is env-only, all optional with defaults (`src/server/config.ts`):
-`PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
-`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`,
-`PF_HOLD_TTL_SECONDS`, `PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the
-"never generate live" kill switch; `PF_READING_BUDGET_USD` must be positive and
-falls back to its default otherwise, because a zero reservation would disable
-the cap entirely.
+`PF_MONTHLY_CAP_USD`, `PF_MAX_OUTPUT_TOKENS`, `PF_RATE_VISITOR`, `PF_RATE_IP`,
+`PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`, `PF_HOLD_TTL_SECONDS`,
+`PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the "never generate live"
+kill switch; a blank or non-positive `PF_MAX_OUTPUT_TOKENS` falls back to 700
+rather than deriving a zero reservation, which would disable the cap entirely.
 
 Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
 `KV_REST_API_*` names Vercel injects). With neither set the store falls back to
 per-instance memory — fine for `npm run dev`, useless on Vercel.
 
-`GET /api/status` reports mode, spend, cache size, and which store is live.
+`GET /api/status` reports mode, spend, cache size, the derived reservation (and
+what it was derived from), and which store is live.
 Store failures are contained everywhere else (a visitor gets the cold-start
 reading, never an error), so this endpoint is where that shows up: `mode` is
 `degraded` — never `live` — when the store cannot answer or recently failed a

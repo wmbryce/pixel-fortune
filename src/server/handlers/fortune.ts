@@ -1,5 +1,6 @@
 import { CardType } from "@/types";
 import { config } from "../config";
+import { FORTUNE_MODEL } from "../model";
 import OpenAI from "openai";
 
 let openai: OpenAI;
@@ -13,7 +14,7 @@ function getOpenAIClient() {
   return openai;
 }
 
-export const FORTUNE_MODEL = "gpt-4o-mini";
+export { FORTUNE_MODEL };
 
 /**
  * The reading's shape is load-bearing, not stylistic: the dialog box splits on
@@ -56,18 +57,42 @@ export type GeneratedFortune = {
  * Reaching the token ceiling should not happen — the prompt asks for a reading
  * roughly 15% shorter than the ceiling allows — but if it does, the visitor
  * would otherwise be paged a sentence that stops mid-word. Losing text is the
- * bug this ticket exists to kill, so the drop is logged rather than swallowed.
+ * bug this ticket exists to kill, so the drop is logged rather than swallowed,
+ * and is never claimed when nothing was dropped.
+ *
+ * A fragment with no complete sentence in it has nothing to fall back to, so
+ * there the cut is made visible in the reading itself rather than handed over
+ * as if it were the whole thing.
  */
+const SENTENCE_ENDS = [".", "!", "?"];
+
 const trimUnfinished = (reading: string) => {
+  const full = reading.trimEnd();
+  const warn = (what: string) =>
+    console.warn(
+      `generateFortune: completion hit max_completion_tokens (${config.maxOutputTokens}); ${what}`
+    );
+
   const lastStop = Math.max(
-    reading.lastIndexOf(". "),
-    reading.lastIndexOf(".\n"),
-    reading.trimEnd().endsWith(".") ? reading.trimEnd().length - 1 : -1
+    ...SENTENCE_ENDS.flatMap(mark => [
+      full.lastIndexOf(`${mark} `),
+      full.lastIndexOf(`${mark}\n`),
+      full.endsWith(mark) ? full.length - 1 : -1,
+    ])
   );
-  console.warn(
-    `generateFortune: completion hit max_completion_tokens (${config.maxOutputTokens}); trimming an unfinished sentence`
-  );
-  return lastStop > 0 ? reading.slice(0, lastStop + 1) : reading;
+
+  if (lastStop > 0) {
+    const trimmed = full.slice(0, lastStop + 1);
+    if (trimmed.length < full.length) {
+      warn(`trimmed ${full.length - trimmed.length} unfinished characters`);
+    }
+    return trimmed;
+  }
+
+  const lastBreak = full.search(/\s\S*$/);
+  const kept = lastBreak > 0 ? full.slice(0, lastBreak) : full;
+  warn("no complete sentence to trim back to; marking the cut");
+  return `${kept}…`;
 };
 
 /**

@@ -3,7 +3,7 @@
  * the token ceiling, and a completion that hits that ceiling is never handed to
  * the visitor with a sentence stopping mid-word.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { CardType } from '@/types';
 
 const create = vi.hoisted(() => vi.fn());
@@ -29,6 +29,11 @@ const completion = (content: string, finish_reason = 'stop') => ({
 beforeEach(() => {
   create.mockReset();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+// The warn spy is asserted on per spec, so its calls must not carry over.
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('generateFortune', () => {
@@ -66,5 +71,37 @@ describe('generateFortune', () => {
     expect(generated?.reading).toBe('A finished sentence.');
     // Dropping text is the bug this fix exists to kill, so it is never silent.
     expect(console.warn).toHaveBeenCalled();
+  });
+
+  it.each(['?', '!'])(
+    'keeps a sentence that ended in %s rather than trimming past it',
+    async mark => {
+      create.mockResolvedValue(
+        completion(`So what do you fear${mark} The Tower says you already kn`, 'length')
+      );
+
+      const generated = await generateFortune(HAND);
+
+      expect(generated?.reading).toBe(`So what do you fear${mark}`);
+    }
+  );
+
+  it('marks the cut when there is no complete sentence to keep', async () => {
+    create.mockResolvedValue(completion('The Tower speaks of a fall you already kn', 'length'));
+
+    const generated = await generateFortune(HAND);
+
+    // Nothing to trim back to, so the loss is visible in the reading itself
+    // rather than handed over as a word that stops mid-air.
+    expect(generated?.reading).toBe('The Tower speaks of a fall you already…');
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('does not claim a trim it did not make', async () => {
+    const reading = 'A reading that ended exactly on the ceiling.';
+    create.mockResolvedValue(completion(reading, 'length'));
+
+    await expect(generateFortune(HAND)).resolves.toMatchObject({ reading });
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });
