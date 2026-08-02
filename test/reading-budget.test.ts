@@ -19,7 +19,12 @@ import { dealHand, resolveReading } from '@/server/handlers/reading';
 import { budgetStatus, sweepExpiredHolds } from '@/server/budget';
 import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
-import { config } from '@/server/config';
+import { config, MICROS_PER_USD } from '@/server/config';
+import {
+  ceilingHits,
+  noteCeilingHit,
+  resetCeilingHitsForTests,
+} from '@/server/ceiling';
 import { visitorIdentity } from '@/server/rate-limit';
 import { TarotDeck } from '@/server/data/tarot-deck';
 import {
@@ -29,7 +34,13 @@ import {
   type Store,
 } from '@/server/store';
 
-const PER_READING_USD = 0.01;
+/**
+ * The reservation is derived from the token ceiling, not configurable beside
+ * it, so the cap in these specs is expressed in readings rather than dollars.
+ */
+const PER_READING_MICROS = config.readingBudgetMicros;
+const capUsd = (readings: number) =>
+  String((readings * PER_READING_MICROS) / MICROS_PER_USD);
 
 let calls = 0;
 const reading = (n: number) => `Reading ${n} paragraph one.\n\nParagraph two.`;
@@ -61,13 +72,15 @@ beforeEach(() => {
     calls += 1;
     return {
       reading: reading(calls),
+      truncated: false,
       model: 'test-model',
       usage: { promptTokens: 150, completionTokens: 800 },
     };
   });
 
-  vi.stubEnv('PF_READING_BUDGET_USD', String(PER_READING_USD));
-  vi.stubEnv('PF_MONTHLY_CAP_USD', String(PER_READING_USD * 3));
+  resetCeilingHitsForTests();
+
+  vi.stubEnv('PF_MONTHLY_CAP_USD', capUsd(3));
   vi.stubEnv('PF_RATE_VISITOR', '100');
   vi.stubEnv('PF_RATE_IP', '1000');
   resetStoreForTests();
@@ -121,7 +134,7 @@ describe('spend cap', () => {
   it('charges the reservation, not the model, when the model is unpriced', async () => {
     await draw();
     const status = await budgetStatus();
-    expect(status.spentMicros).toBe(10_000);
+    expect(status.spentMicros).toBe(PER_READING_MICROS);
   });
 
   it('refunds a reservation the generation never used', async () => {
@@ -135,7 +148,7 @@ describe('spend cap', () => {
   it('refunds a draw that was abandoned before its reading', async () => {
     vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
     await dealHand(visitor('ghost'));
-    expect((await budgetStatus()).spentMicros).toBe(10_000);
+    expect((await budgetStatus()).spentMicros).toBe(PER_READING_MICROS);
 
     vi.useFakeTimers();
     vi.setSystemTime(Date.now() + 5_000);
@@ -147,7 +160,7 @@ describe('spend cap', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-31T23:59:00Z'));
     await dealHand(visitor('boundary'));
-    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(10_000);
+    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(PER_READING_MICROS);
 
     // The hold outlives midnight UTC on the 1st. Refunding at sweep time would
     // credit August, pushing its counter negative and raising its cap.
@@ -167,7 +180,7 @@ describe('spend cap', () => {
     vi.stubEnv('PF_HOLD_TTL_SECONDS', '1');
 
     for (let i = 0; i < 25; i++) await dealHand(visitor(`ghost-${i}`));
-    expect((await budgetStatus()).spentMicros).toBe(25 * 10_000);
+    expect((await budgetStatus()).spentMicros).toBe(25 * PER_READING_MICROS);
 
     vi.useFakeTimers();
     vi.setSystemTime(Date.now() + 5_000);
@@ -201,21 +214,28 @@ describe('spend cap', () => {
     expect((await budgetStatus()).spentMicros).toBe(0);
   });
 
-  it('falls back to the default per-reading budget rather than zero', () => {
-    for (const value of ['', '0', '-1', 'nonsense', '0.0000001']) {
-      vi.stubEnv('PF_READING_BUDGET_USD', value);
-      expect(config.readingBudgetMicros).toBe(10_000);
-    }
-  });
-
-  it('still enforces the cap when the per-reading budget is blank', async () => {
+  it('still enforces the cap when the token ceiling is blank', async () => {
     // `Number('') === 0`, and a zero reservation never moves the counter, so a
-    // blank value used to disable the cap outright.
-    vi.stubEnv('PF_READING_BUDGET_USD', '');
+    // blank value must fall back to the default derivation rather than disable
+    // the cap outright.
+    vi.stubEnv('PF_MAX_OUTPUT_TOKENS', '');
+    expect(config.readingBudgetMicros).toBe(PER_READING_MICROS);
+
     for (let i = 0; i < 8; i++) await draw(visitor(`blank-${i}`));
 
     expect(calls).toBe(3);
     expect((await budgetStatus()).capReached).toBe(true);
+  });
+
+  it('reserves more per reading once the token ceiling is raised', async () => {
+    // Raising only the ceiling used to leave the reservation behind, so the
+    // month overspent while the cap still read as enforced.
+    vi.stubEnv('PF_MAX_OUTPUT_TOKENS', '2000');
+    expect(config.readingBudgetMicros).toBeGreaterThan(PER_READING_MICROS);
+
+    await dealHand(visitor('roomy'));
+
+    expect((await budgetStatus()).spentMicros).toBe(config.readingBudgetMicros);
   });
 });
 
@@ -279,8 +299,8 @@ describe('concurrent holds', () => {
       `pf:holds:id:${visitorIdentity(burst)}`
     );
     expect(outstanding).toBeLessThanOrEqual(2);
-    expect((await budgetStatus()).spentMicros).toBeLessThanOrEqual(2 * 10_000);
-    expect((await budgetStatus()).spentMicros).toBe(outstanding * 10_000);
+    expect((await budgetStatus()).spentMicros).toBeLessThanOrEqual(2 * PER_READING_MICROS);
+    expect((await budgetStatus()).spentMicros).toBe(outstanding * PER_READING_MICROS);
   });
 
   it('demotes a burst to a coherent cached reading, never an error', async () => {
@@ -370,7 +390,7 @@ describe('store failures', () => {
     breakStore('rPush');
     await resolveReading(dealt.token);
 
-    expect((await budgetStatus()).spentMicros).toBe(10_000);
+    expect((await budgetStatus()).spentMicros).toBe(PER_READING_MICROS);
   });
 
   it('keeps a paid reading when releasing the identity slot fails', async () => {
@@ -389,7 +409,7 @@ describe('store failures', () => {
 
     expect(calls).toBe(1);
     expect(text).toBe(reading(1));
-    expect((await budgetStatus()).spentMicros).toBe(10_000);
+    expect((await budgetStatus()).spentMicros).toBe(PER_READING_MICROS);
     expect(storeFailures().last?.scope).toBe('claimReservation.identitySlot');
   });
 });
@@ -417,6 +437,39 @@ describe('store health', () => {
     expect(body.mode).toBe('degraded');
     expect(body.store.failures).toBeGreaterThan(0);
     expect(body.store.lastFailure.scope).toBe('dealHand');
+  });
+
+  it('reports the reservation the cap actually enforces', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', capUsd(10));
+
+    const { GET } = await import('@/app/api/status/route');
+    const body = await (await GET()).json();
+
+    expect(body.perReadingBudgetUsd).toBe(PER_READING_MICROS / MICROS_PER_USD);
+    expect(body.perReadingBudgetDerived).toBe(true);
+    expect(body.maxOutputTokens).toBe(config.maxOutputTokens);
+    // The number reported is the number spent against the cap, not a constant
+    // sitting beside it.
+    expect(body.readingsRemaining).toBe(10);
+
+    await draw(visitor('one'));
+    const after = await (await GET()).json();
+    expect(after.readingsRemaining).toBe(9);
+  });
+
+  it('reports how often the token ceiling was hit', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { GET } = await import('@/app/api/status/route');
+
+    expect((await (await GET()).json()).ceilingHits).toBe(0);
+
+    // A ceiling being hit regularly means the token limit is too low, which has
+    // to be discoverable without grepping the logs.
+    noteCeilingHit('a completion was cut off');
+
+    expect(ceilingHits()).toBe(1);
+    expect((await (await GET()).json()).ceilingHits).toBe(1);
   });
 
   it('reports live and reachable while the store is healthy', async () => {
@@ -485,6 +538,28 @@ describe('cached mode', () => {
     );
   });
 
+  it('never seeds the pool with a reading the token ceiling cut short', async () => {
+    const cut = 'A reading the ceiling cut short…';
+    generateFortune.mockResolvedValue({
+      reading: cut,
+      truncated: true,
+      model: 'test-model',
+      usage: { promptTokens: 150, completionTokens: 700 },
+    });
+
+    const dealt = await draw(visitor('cut'));
+
+    // The visitor who paid for it still gets it, and it is still charged; only
+    // the cache write is skipped, so no later visitor is handed a short reading
+    // — including in cached mode, where the pool is the only source there is.
+    expect(dealt.reading).toBe(cut);
+    expect((await budgetStatus()).spentMicros).toBe(PER_READING_MICROS);
+    expect(await cacheSize()).toBe(0);
+    // A replay of the same token is the same visitor's own reading, so the hold
+    // still carries it.
+    expect(await resolveReading(dealt.token)).toBe(cut);
+  });
+
   it('grows the cache by one per live reading', async () => {
     expect(await cacheSize()).toBe(0);
     await draw(visitor('a'));
@@ -537,5 +612,21 @@ describe('rate limit', () => {
     for (let i = 0; i < 6; i++) await draw(visitor(`fresh-${i}`, '198.51.100.8'));
 
     expect(calls).toBe(2);
+  });
+});
+
+describe('cost accounting', () => {
+  // Literal, not `FORTUNE_MODEL`: this file mocks that module out.
+  it('reconciles a live reading down to what the model charged', async () => {
+    generateFortune.mockResolvedValue({
+      reading: reading(1),
+      model: 'gpt-4o-mini-2024-07-18',
+      usage: { promptTokens: 400, completionTokens: 700 },
+    });
+
+    await draw();
+
+    // $0.00048 of the $0.0006 reserved, priced off the dated snapshot.
+    expect((await budgetStatus()).spentMicros).toBe(480);
   });
 });

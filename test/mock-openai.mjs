@@ -4,11 +4,33 @@
 //   MOCK_DELAY_MS=0    node test/mock-openai.mjs   # fast return — exercises the DialogBox race
 //   MOCK_DELAY_MS=4000 node test/mock-openai.mjs   # realistic OpenAI latency
 //   MOCK_MODE=error    node test/mock-openai.mjs   # 500, exercises the mutation error path
+//   MOCK_MODE=long     node test/mock-openai.mjs   # paragraphs past 1000 chars, exercises TypingText
+//   MOCK_MODE=cutoff   node test/mock-openai.mjs   # finish_reason=length, exercises the trim
 import http from 'node:http';
 
-const READING = `Past:\nThe cards show a romantic beginning. Mock paragraph one.\n\nPresent:\nUpheaval is marked here. Mock paragraph two.\n\nFuture:\nRenewal is promised. Mock paragraph three.`;
-const DELAY = Number(process.env.MOCK_DELAY_MS ?? 4000);
+const SHORT = `Past:\nThe cards show a romantic beginning. Mock paragraph one.\n\nPresent:\nUpheaval is marked here. Mock paragraph two.\n\nFuture:\nRenewal is promised. Mock paragraph three.`;
+
+/** Each paragraph is past the 1000-character ceiling TypingText used to truncate at. */
+const LONG = [1, 2, 3]
+  .map(
+    n =>
+      `Paragraph ${n}. ` +
+      Array.from(
+        { length: 24 },
+        (_, i) => `Sentence ${i} of a reading that runs long enough to matter.`
+      ).join(' ')
+  )
+  .join('\n\n');
+
 const MODE = process.env.MOCK_MODE ?? 'ok';
+const READING =
+  MODE === 'long'
+    ? LONG
+    : MODE === 'cutoff'
+      ? `${SHORT}\n\nAnd a fourth paragraph that stops mid-sen`
+      : SHORT;
+const FINISH_REASON = MODE === 'cutoff' ? 'length' : 'stop';
+const DELAY = Number(process.env.MOCK_DELAY_MS ?? 4000);
 const PORT = Number(process.env.MOCK_PORT ?? 3222);
 
 http
@@ -35,15 +57,21 @@ http
             id: 'chatcmpl-mock',
             object: 'chat.completion',
             created: 1,
-            model: 'gpt-3.5-turbo-16k',
+            model: 'gpt-4o-mini-2024-07-18',
             choices: [
               {
                 index: 0,
                 message: { role: 'assistant', content: READING },
-                finish_reason: 'stop',
+                finish_reason: FINISH_REASON,
               },
             ],
-            usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            // Roughly what a real four-paragraph reading costs, so the spend
+            // reported by /api/status is realistic against the mock too.
+            usage: {
+              prompt_tokens: 190,
+              completion_tokens: 610,
+              total_tokens: 800,
+            },
           })
         );
       }, DELAY);

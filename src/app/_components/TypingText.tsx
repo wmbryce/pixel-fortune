@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useEffect, useState, useRef } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 
 type Props = {
   text: string;
@@ -11,18 +11,27 @@ type Props = {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Types out the whole of `text`, always.
+ *
+ * There used to be a 1000-character ceiling here, paired with a `startIndex`
+ * that nothing ever advanced — the stub of a pagination scheme that was never
+ * built. Past 1000 characters the loop simply stopped: the rest of the
+ * paragraph was never typed, `setTypingComplete` never fired, so the Continue
+ * button never appeared and the reading dead-ended unless the visitor happened
+ * to press a key. Paging is the dialog box's job (it splits the reading on
+ * blank lines); this component's only contract is that what it is handed is
+ * what the visitor sees.
+ */
 export const TypingText = React.forwardRef(
   ({ text, delay, skip, setTypingComplete }: Props, ref: any) => {
-    const startIndex = useRef<number>(0);
     const [currentIndex, setCurrentIndex] = useState<number>(0);
     const [delayComplete, setDelayComplete] = useState<boolean>(false);
 
     const typingInterval = 30;
-    const maxCharacters = 1000;
 
     useEffect(() => {
       setCurrentIndex(0);
-      startIndex.current = 0;
       setTypingComplete(false);
     }, [text]);
 
@@ -37,11 +46,7 @@ export const TypingText = React.forwardRef(
           setCurrentIndex(text?.length);
           setTypingComplete(true);
           setDelayComplete(false);
-        } else if (
-          delayComplete &&
-          text?.length > currentIndex &&
-          maxCharacters > currentIndex - startIndex.current
-        ) {
+        } else if (delayComplete && text?.length > currentIndex) {
           setTypingComplete(false);
           await sleep(typingInterval);
           setCurrentIndex(prev => prev + 1);
@@ -58,9 +63,10 @@ export const TypingText = React.forwardRef(
       type();
     }, [currentIndex, text, skip, delay, setTypingComplete, delayComplete]);
 
-    let displayText = useMemo(() => {
-      return text.substring(startIndex.current, currentIndex);
-    }, [startIndex.current, currentIndex, text]);
+    const displayText = useMemo(
+      () => text.substring(0, currentIndex),
+      [currentIndex, text]
+    );
 
     return (
       <p className={'inline-block font-pixel text-base pb-16'}>{displayText}</p>

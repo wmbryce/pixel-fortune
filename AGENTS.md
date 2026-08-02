@@ -15,7 +15,8 @@ it — `openai` reads `OPENAI_BASE_URL`:
 
 The delay is the lever for the DialogBox state machine: the reveal placeholder is
 scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
-orderings of the reading vs that timer.
+orderings of the reading vs that timer. `MOCK_MODE=long` and `MOCK_MODE=cutoff`
+cover the two reading-length paths.
 
 ## API budget: live until the cap, then cached
 
@@ -27,30 +28,73 @@ break without noticing:
 - **In cached mode the reading is chosen first and its cards are dealt.** Never
   turn it into "deal a spread, then look up a reading for it" — five of 78 cards
   essentially never repeats, so that lookup would miss every time.
+- **A truncated reading never enters the pool.** `GeneratedFortune.truncated`
+  (set from `finish_reason === 'length'`, whether or not trimming removed
+  anything) skips the `cacheReading` call in `settleGeneration`; the visitor who
+  paid for it still gets it, and the hold still replays it for that same token.
+  Caching one would re-serve a visibly short reading forever.
 - **Budget is reserved before the OpenAI call, not after.** The reserve is one
   atomic `INCRBY`; check-then-call lets a concurrent burst through the cap.
 - **A reservation is settled against the month it was charged to**, carried on
   the hold rather than resolved at settle time — otherwise a hold that outlives
   midnight UTC on the 1st refunds into the new month and raises its cap.
 
+The per-reading reservation is **derived at runtime, never configured**: the
+price of `FORTUNE_MODEL` (`src/server/model.ts`) applied to `MAX_PROMPT_TOKENS`
+plus `PF_MAX_OUTPUT_TOKENS`, times `RESERVATION_MARGIN`. Today: `gpt-4o-mini` at
+$0.15/$0.60 per M tokens, 400 prompt + 700 completion tokens = $0.00048 worst
+case, reserved at $0.0006. There is deliberately no `PF_READING_BUDGET_USD` —
+the settle step caps the charge at the reservation, so a token ceiling raised on
+its own would book a call at less than it cost and silently overspend the month.
+One knob, and the money follows it. Asserted in `test/fortune-cost.test.ts`.
+
+Consequences worth knowing before touching it:
+
+- `src/server/pricing.ts` owns `MICROS_PER_USD` and is a leaf, because
+  `config.ts` derives the reservation from it. Don't make it import the config
+  back.
+- A model with no row there cannot be derived, so the reservation falls back to
+  `UNPRICED_READING_BUDGET_USD` ($0.01) and `/api/status` reports
+  `perReadingBudgetDerived: false`. Change `FORTUNE_MODEL`, add its row.
+- Rows match by **longest** prefix, because a completion reports the dated
+  snapshot (`gpt-4o-mini-2024-07-18`), never the alias the request sent — and
+  `gpt-4o` is a prefix of every mini snapshot.
+
 Tuning is env-only, all optional with defaults (`src/server/config.ts`):
-`PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
-`PF_RATE_VISITOR`, `PF_RATE_IP`, `PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`,
-`PF_HOLD_TTL_SECONDS`, `PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the
-"never generate live" kill switch; `PF_READING_BUDGET_USD` must be positive and
-falls back to its default otherwise, because a zero reservation would disable
-the cap entirely.
+`PF_MONTHLY_CAP_USD`, `PF_MAX_OUTPUT_TOKENS`, `PF_RATE_VISITOR`, `PF_RATE_IP`,
+`PF_RATE_WINDOW_SECONDS`, `PF_CACHE_MAX`, `PF_HOLD_TTL_SECONDS`,
+`PF_MAX_CONCURRENT_HOLDS`. `PF_MONTHLY_CAP_USD=0` is the "never generate live"
+kill switch; a blank or non-positive `PF_MAX_OUTPUT_TOKENS` falls back to 700
+rather than deriving a zero reservation, which would disable the cap entirely.
 
 Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
 `KV_REST_API_*` names Vercel injects). With neither set the store falls back to
 per-instance memory — fine for `npm run dev`, useless on Vercel.
 
-`GET /api/status` reports mode, spend, cache size, and which store is live.
+`GET /api/status` reports mode, spend, cache size, the derived reservation (and
+what it was derived from), `ceilingHits`, and which store is live.
 Store failures are contained everywhere else (a visitor gets the cold-start
 reading, never an error), so this endpoint is where that shows up: `mode` is
 `degraded` — never `live` — when the store cannot answer or recently failed a
 command, and `store.lastFailure` names the site. The failure counter is
 per-instance, so the log line `noteStoreFailure` emits is the durable record.
+`ceilingHits` (`src/server/ceiling.ts`) is the same shape for the other invisible
+failure: a count that climbs means `PF_MAX_OUTPUT_TOKENS` is too low.
+
+## The reading's shape is load-bearing
+
+The dialog box splits the reading on blank lines and pages one paragraph at a
+time through a 30ms/char typewriter, so the prompt in
+`src/server/handlers/fortune.ts` pins the format — 4 paragraphs, blank-line
+separated, plain prose, no markdown — as much as the voice. Loosening it pages
+literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
+that takes minutes to type.
+
+`TypingText` types out whatever it is handed, in full, always; paging is the
+dialog box's job. It used to cap each page at 1000 characters against a
+`startIndex` nothing advanced, which stalled the typewriter mid-paragraph with
+no Continue button. Regression tests: `test/typing-text.test.tsx` and the long
+page case in `test/dialog-box-race.test.tsx`.
 
 ## TypeScript ceiling
 
