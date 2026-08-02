@@ -60,18 +60,48 @@ export type SpreadPlan = {
   cardW: number;
   rows: number[][];
   cell: { width: number; height: number };
+  /** What the plan occupies, so the stage can reserve it. */
+  width: number;
+  height: number;
+  /** False once even a MIN_CARD spread is bigger than the stage. */
+  fits: boolean;
 };
 
-/** How the five cards divide up a stage of this size. */
+const LAYOUTS = [[[0, 1, 2, 3, 4]], [[0, 1], [2, 3, 4]]];
+
+function candidate(w: number, h: number, rows: number[][]): SpreadPlan {
+  const cols = Math.max(...rows.map(r => r.length));
+  const cardW = fitCard(w, h, cols, rows.length);
+  const cell = cardCell(cardW);
+  const width = Math.max(
+    ...rows.map(r => r.length * cell.width + (r.length - 1) * GAP)
+  );
+  const height = rows.length * cell.height + (rows.length - 1) * GAP;
+  return { cardW, rows, cell, width, height, fits: width <= w && height <= h };
+}
+
+/** Both ways the five cards can divide up a stage of this size. */
+export function spreadCandidates(w: number, h: number): SpreadPlan[] {
+  return LAYOUTS.map(rows => candidate(w, h, rows));
+}
+
+/**
+ * The better of the two, compared rather than assumed: `fitCard` clamps to
+ * MIN_CARD, so 2+3 can come back smaller *and* taller than five across on a
+ * short wide stage, and a plan always exists even where none fits.
+ */
 export function planSpread(w: number, h: number): SpreadPlan {
-  const wide = fitCard(w, h, 5, 1);
-  const oneRow = wide >= ONE_ROW_MIN_CARD;
-  const cardW = oneRow ? wide : fitCard(w, h, 3, 2);
-  return {
-    cardW,
-    rows: oneRow ? [[0, 1, 2, 3, 4]] : [[0, 1], [2, 3, 4]],
-    cell: cardCell(cardW),
-  };
+  const [oneRow, twoRows] = spreadCandidates(w, h);
+
+  if (oneRow.fits && oneRow.cardW >= ONE_ROW_MIN_CARD) return oneRow;
+  if (oneRow.fits !== twoRows.fits) return oneRow.fits ? oneRow : twoRows;
+  if (oneRow.fits) return twoRows.cardW > oneRow.cardW ? twoRows : oneRow;
+  // Nothing fits. Overflowing the width puts cards past an edge that cannot be
+  // scrolled back to, so prefer the plan that stays inside it; a taller plan
+  // only costs the scroll the stage now reserves.
+  if (oneRow.width <= w !== (twoRows.width <= w))
+    return oneRow.width <= w ? oneRow : twoRows;
+  return twoRows.height < oneRow.height ? twoRows : oneRow;
 }
 
 function useStageBox() {
@@ -140,10 +170,14 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     if (!next.includes(false)) setAllRevealed(true);
   };
 
-  const { cardW, rows, cell } = planSpread(box.w, box.h);
+  const plan = planSpread(box.w, box.h);
+  const { cardW, rows, cell } = plan;
 
-  const gridTop =
-    (box.h - (rows.length * cell.height + (rows.length - 1) * GAP)) / 2;
+  // Never negative: a plan taller than the stage is centred off both its ends,
+  // where the cards paint over the header and the dialog box with nothing to
+  // scroll them back. The stage reserves `plan.height` instead, so the column
+  // grows and the page scrolls to them.
+  const gridTop = Math.max(0, (box.h - plan.height) / 2);
 
   const grid = (index: number) => {
     const row = rows.findIndex(r => r.includes(index));
@@ -151,7 +185,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     const width =
       rows[row].length * cell.width + (rows[row].length - 1) * GAP;
     return {
-      x: (box.w - width) / 2 + col * (cell.width + GAP),
+      x: Math.max(0, (box.w - width) / 2) + col * (cell.width + GAP),
       y: gridTop + row * (cell.height + GAP),
       rotate: 0,
     };
@@ -164,7 +198,11 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   });
 
   return (
-    <div ref={stageRef} className="relative min-h-0 flex-1">
+    <div
+      ref={stageRef}
+      className="relative flex-1"
+      style={{ minHeight: plan.height }}
+    >
       {box.w > 0 &&
         tarotHand?.slice(0, dealt).map((data: CardType, index: number) => (
           <motion.div

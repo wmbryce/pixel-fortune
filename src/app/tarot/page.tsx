@@ -42,7 +42,7 @@ export default function Home() {
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-1 flex-col">
       <CardTable tarotHand={tarotHand} setAllRevealed={setAllRevealed} />
       {/* The dialog is a sibling of the card area, not an overlay on it: at its
           256px height it used to bury the bottom of the spread on a phone

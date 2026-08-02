@@ -7,8 +7,8 @@
  */
 import React from 'react';
 import { render, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import CardTable from '@/app/_components/CardTable';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import CardTable, { planSpread } from '@/app/_components/CardTable';
 import { CardType } from '@/types';
 
 const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
@@ -18,7 +18,14 @@ const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
   name: `Card ${i}`,
 }));
 
-/** jsdom has no layout, so the stage reports a phone-sized box. */
+/** jsdom has no layout, so the stage reports whatever box a test sets. */
+const PHONE = { width: 390, height: 520 };
+let stageBox = PHONE;
+
+beforeEach(() => {
+  stageBox = PHONE;
+});
+
 beforeAll(() => {
   vi.stubGlobal(
     'ResizeObserver',
@@ -29,7 +36,7 @@ beforeAll(() => {
       }
       observe() {
         this.cb(
-          [{ contentRect: { width: 390, height: 520 } } as ResizeObserverEntry],
+          [{ contentRect: stageBox } as ResizeObserverEntry],
           this as unknown as ResizeObserver
         );
       }
@@ -70,6 +77,20 @@ describe('CardTable', () => {
     });
 
     expect(setAllRevealed).toHaveBeenCalledWith(true);
+  });
+
+  it('reserves a plan the stage is too short for', async () => {
+    // A landscape phone leaves a 66px stage. The plan is taller than that, and
+    // centring it there put the cards above the header and over the dialog box
+    // with nothing to scroll them back — the stage reserves its height instead.
+    stageBox = { width: 844, height: 66 };
+    const { container } = await dealtTable();
+
+    const plan = planSpread(844, 66);
+    expect(plan.height).toBeGreaterThan(66);
+    expect((container.firstChild as HTMLElement).style.minHeight).toBe(
+      `${plan.height}px`
+    );
   });
 
   it('does not report the hand revealed while a card is still down', async () => {
