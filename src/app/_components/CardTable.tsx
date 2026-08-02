@@ -96,16 +96,25 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const [revealedCards, setRevealedCards] = useState<boolean[]>(() =>
     Array(5).fill(false)
   );
+  const revealedRef = useRef(revealedCards);
 
   const handSize = tarotHand?.length ?? 0;
 
+  // Adjusted during render rather than in an effect, so a new hand is never
+  // dealt for a frame on top of the last one's progress.
+  const [handKey, setHandKey] = useState(handSize);
+  if (handKey !== handSize) {
+    setHandKey(handSize);
+    setDealt(0);
+    setSettled(false);
+    setRevealedCards(Array(5).fill(false));
+  }
+
+  // Keeps the batch-safety ref honest through a reset, which changes the array
+  // without going through a reveal.
   useEffect(() => {
-    if (handSize === 0) {
-      setDealt(0);
-      setSettled(false);
-      setRevealedCards(Array(5).fill(false));
-    }
-  }, [handSize]);
+    revealedRef.current = revealedCards;
+  }, [revealedCards]);
 
   useEffect(() => {
     if (dealt >= handSize) return;
@@ -119,14 +128,16 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     return () => clearTimeout(t);
   }, [dealt, handSize, settled]);
 
-  useEffect(() => {
-    if (!revealedCards.includes(false)) {
-      setAllRevealed(true);
-    }
-  }, [revealedCards, setAllRevealed]);
-
+  // Reported from the reveal itself rather than an effect on the array: the
+  // page clears it when a hand is dealt, so the only transition to announce is
+  // the one a tap causes. The ref carries the latest reveal because several can
+  // land in one batch — reading the state variable would let each of them see
+  // the same stale array and only the last would survive.
   const UpdateRevealCard = (index: number) => {
-    setRevealedCards(prev => prev.map((r, i) => (i === index ? true : r)));
+    const next = revealedRef.current.map((r, i) => (i === index ? true : r));
+    revealedRef.current = next;
+    setRevealedCards(next);
+    if (!next.includes(false)) setAllRevealed(true);
   };
 
   const { cardW, rows, cell } = planSpread(box.w, box.h);

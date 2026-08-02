@@ -110,6 +110,26 @@ an interrupted flip cannot strand the card off the table; it is clamped to
 is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
 bounce to express. Decided in #13, which measured the alternatives.
 
+## The spread is measured, not set by breakpoints
+
+`CardTable.tsx` measures its stage and calls `planSpread` — five across while
+they stay usably large, 2+3 once they do not. Breakpoints cannot express the
+binding constraint, which is vertical: two rows above the dialog box's fixed
+256px. Two things follow, and both are easy to undo by accident:
+
+- **The dialog's strip is reserved from the start** in `tarot/page.tsx`
+  (`h-[292px]` = 256 + the box's own `mt-6`). Letting it size to content makes
+  every card resize when the box opens.
+- **The caption row is dropped below a 64px card** (`showsLabel` in `Card.tsx`).
+  It is the difference between the spread fitting a 568px-tall viewport and not,
+  and `planSpread` solves the fit twice so its answer agrees with what `Card`
+  will actually render. `test/spread-layout.test.ts` pins both.
+
+Reveals can arrive in one batch, so `UpdateRevealCard` builds the next array
+from a ref rather than from state — otherwise each reveal in the batch reads the
+same stale array and only the last survives (`test/card-table.test.tsx`).
+Decided in #14, which compared five layouts.
+
 ## The tarot background is 16:9 and a phone is not
 
 `src/app/tarot/background.css`; its header comment carries the reasoning and the
