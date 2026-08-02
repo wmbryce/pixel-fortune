@@ -104,7 +104,9 @@ export default function Card(props: Props) {
           id={props.id}
           onClick={revealCard}
           whileHover={
-            hoverable && !reduced ? { y: -10, transition: SPRING.nudge } : undefined
+            hoverable && !reduced
+              ? { y: -10, transition: SPRING.nudge }
+              : undefined
           }
           // Press feedback survives reduced motion as a dim rather than a lift:
           // a tap that registers nothing at all is the one thing a disable

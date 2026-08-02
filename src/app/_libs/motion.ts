@@ -49,7 +49,3 @@ export const CROSSFADE = {
   duration: DURATION.crossfade,
   ease: EASE_OUT,
 } satisfies Transition;
-
-/** A spring, or the cross-fade that stands in for it. */
-export const transitionFor = (reduced: boolean, spring: Transition): Transition =>
-  reduced ? CROSSFADE : spring;
