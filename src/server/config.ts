@@ -19,7 +19,25 @@ const intEnv = (name: string, fallback: number) => {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : fallback;
 };
 
-const DEFAULT_READING_BUDGET_USD = 0.01;
+/**
+ * The per-reading budget, derived rather than estimated.
+ *
+ * `gpt-4o-mini` at $0.15 / $0.60 per million input / output tokens. The prompt
+ * is a fixed template plus five card names — under 400 tokens even generously —
+ * and the completion is capped at `maxOutputTokens`:
+ *
+ *   400 in  x $0.15/1M = $0.00006
+ *   700 out x $0.60/1M = $0.00042
+ *                        --------
+ *   worst case           $0.00048
+ *
+ * Reserved at $0.0006, ~25% above that ceiling, because a reservation must
+ * never be smaller than what the call can actually cost. At the $5 default
+ * monthly cap that is >8,000 live readings a month, against ~500 under the old
+ * $0.01 estimate — which is most of the point of the model choice: more live
+ * readings means the reading cache fills faster.
+ */
+export const DEFAULT_READING_BUDGET_USD = 0.0006;
 
 export const config = {
   /** Ceiling on live generation per calendar month. Zero is the kill switch. */
@@ -28,7 +46,8 @@ export const config = {
   },
   /**
    * What one reading may cost. Reserved up front, reconciled down to the real
-   * usage afterwards. Also the ceiling ticket #12 has to pick a model under.
+   * usage afterwards. See `DEFAULT_READING_BUDGET_USD` for how the default is
+   * derived from the model's price and the token ceiling.
    *
    * Must be strictly positive: a zero reservation increments the spend counter
    * by nothing, so the cap would never be reached and every request would run
@@ -41,9 +60,14 @@ export const config = {
       ? micros
       : Math.round(DEFAULT_READING_BUDGET_USD * MICROS_PER_USD);
   },
-  /** Hard stop on completion length, so a runaway generation cannot outspend its reservation. */
+  /**
+   * Hard stop on completion length, so a runaway generation cannot outspend its
+   * reservation. 700 is ~15% of headroom over the four ~600-character
+   * paragraphs the prompt asks for, so a well-behaved reading finishes on its
+   * own and the ceiling only ever catches a runaway.
+   */
   get maxOutputTokens() {
-    return intEnv('PF_MAX_OUTPUT_TOKENS', 1200);
+    return intEnv('PF_MAX_OUTPUT_TOKENS', 700);
   },
   /** Live draws per visitor per window before that visitor is served from cache. */
   get visitorRateLimit() {

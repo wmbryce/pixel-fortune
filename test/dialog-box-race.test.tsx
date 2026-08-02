@@ -178,6 +178,30 @@ describe('DialogBox fortune race', () => {
     expect(label()).toBe('Complete');
   });
 
+  it('pages a paragraph past the old 1000-character ceiling in full', async () => {
+    const long = Array.from(
+      { length: 30 },
+      (_, i) => `Sentence ${i} of a reading that runs long enough to matter.`
+    ).join(' ');
+    fortuneResult = [long, 'Second paragraph.'].join('\n\n');
+    expect(long.length).toBeGreaterThan(1000);
+
+    await dealHand();
+    await tick(3000);
+
+    await reveal();
+    await confirm();
+    // No skip: the page has to finish typing on its own, which is what used to
+    // stall at 1000 characters and leave the dialog with no button.
+    await runTimers(long.length * 40 + 1000);
+    expect(body()).toBe(long);
+    expect(label()).toBe('Continue');
+
+    await confirm();
+    await reveal();
+    expect(body()).toContain('Second paragraph.');
+  });
+
   it('still reaches the reset state when the fortune errors immediately', async () => {
     fortuneResult = undefined;
     await dealHand();

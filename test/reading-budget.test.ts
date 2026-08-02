@@ -19,7 +19,7 @@ import { dealHand, resolveReading } from '@/server/handlers/reading';
 import { budgetStatus, sweepExpiredHolds } from '@/server/budget';
 import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
-import { config } from '@/server/config';
+import { config, DEFAULT_READING_BUDGET_USD } from '@/server/config';
 import { visitorIdentity } from '@/server/rate-limit';
 import { TarotDeck } from '@/server/data/tarot-deck';
 import {
@@ -202,9 +202,10 @@ describe('spend cap', () => {
   });
 
   it('falls back to the default per-reading budget rather than zero', () => {
+    const defaultMicros = DEFAULT_READING_BUDGET_USD * 1_000_000;
     for (const value of ['', '0', '-1', 'nonsense', '0.0000001']) {
       vi.stubEnv('PF_READING_BUDGET_USD', value);
-      expect(config.readingBudgetMicros).toBe(10_000);
+      expect(config.readingBudgetMicros).toBe(defaultMicros);
     }
   });
 
@@ -212,6 +213,7 @@ describe('spend cap', () => {
     // `Number('') === 0`, and a zero reservation never moves the counter, so a
     // blank value used to disable the cap outright.
     vi.stubEnv('PF_READING_BUDGET_USD', '');
+    vi.stubEnv('PF_MONTHLY_CAP_USD', String(DEFAULT_READING_BUDGET_USD * 3));
     for (let i = 0; i < 8; i++) await draw(visitor(`blank-${i}`));
 
     expect(calls).toBe(3);
@@ -537,5 +539,22 @@ describe('rate limit', () => {
     for (let i = 0; i < 6; i++) await draw(visitor(`fresh-${i}`, '198.51.100.8'));
 
     expect(calls).toBe(2);
+  });
+});
+
+describe('cost accounting', () => {
+  // Literal, not `FORTUNE_MODEL`: this file mocks that module out.
+  it('reconciles a live reading down to what the model charged', async () => {
+    vi.stubEnv('PF_READING_BUDGET_USD', String(DEFAULT_READING_BUDGET_USD));
+    generateFortune.mockResolvedValue({
+      reading: reading(1),
+      model: 'gpt-4o-mini-2024-07-18',
+      usage: { promptTokens: 400, completionTokens: 700 },
+    });
+
+    await draw();
+
+    // $0.00048 of the $0.0006 reserved, priced off the dated snapshot.
+    expect((await budgetStatus()).spentMicros).toBe(480);
   });
 });

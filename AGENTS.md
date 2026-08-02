@@ -15,7 +15,8 @@ it — `openai` reads `OPENAI_BASE_URL`:
 
 The delay is the lever for the DialogBox state machine: the reveal placeholder is
 scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
-orderings of the reading vs that timer.
+orderings of the reading vs that timer. `MOCK_MODE=long` and `MOCK_MODE=cutoff`
+cover the two reading-length paths.
 
 ## API budget: live until the cap, then cached
 
@@ -32,6 +33,15 @@ break without noticing:
 - **A reservation is settled against the month it was charged to**, carried on
   the hold rather than resolved at settle time — otherwise a hold that outlives
   midnight UTC on the 1st refunds into the new month and raises its cap.
+
+The per-reading budget is derived, not guessed: `gpt-4o-mini` at $0.15/$0.60 per
+M tokens, a prompt under 400 tokens and a 700-token completion ceiling, so
+$0.00048 worst case, reserved at $0.0006. The derivation lives on
+`DEFAULT_READING_BUDGET_USD` in `src/server/config.ts` and is asserted in
+`test/fortune-cost.test.ts` — change the model or `PF_MAX_OUTPUT_TOKENS` and
+both have to move together, plus the model's row in `src/server/pricing.ts`.
+That row is matched by prefix because a completion reports the dated snapshot
+(`gpt-4o-mini-2024-07-18`), never the alias the request sent.
 
 Tuning is env-only, all optional with defaults (`src/server/config.ts`):
 `PF_MONTHLY_CAP_USD`, `PF_READING_BUDGET_USD`, `PF_MAX_OUTPUT_TOKENS`,
@@ -51,6 +61,21 @@ reading, never an error), so this endpoint is where that shows up: `mode` is
 `degraded` — never `live` — when the store cannot answer or recently failed a
 command, and `store.lastFailure` names the site. The failure counter is
 per-instance, so the log line `noteStoreFailure` emits is the durable record.
+
+## The reading's shape is load-bearing
+
+The dialog box splits the reading on blank lines and pages one paragraph at a
+time through a 30ms/char typewriter, so the prompt in
+`src/server/handlers/fortune.ts` pins the format — 4 paragraphs, blank-line
+separated, plain prose, no markdown — as much as the voice. Loosening it pages
+literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
+that takes minutes to type.
+
+`TypingText` types out whatever it is handed, in full, always; paging is the
+dialog box's job. It used to cap each page at 1000 characters against a
+`startIndex` nothing advanced, which stalled the typewriter mid-paragraph with
+no Continue button. Regression tests: `test/typing-text.test.tsx` and the long
+page case in `test/dialog-box-race.test.tsx`.
 
 ## TypeScript ceiling
 

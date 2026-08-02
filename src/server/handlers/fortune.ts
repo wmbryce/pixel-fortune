@@ -13,24 +13,35 @@ function getOpenAIClient() {
   return openai;
 }
 
-export const FORTUNE_MODEL = "gpt-3.5-turbo-16k";
+export const FORTUNE_MODEL = "gpt-4o-mini";
 
+/**
+ * The reading's shape is load-bearing, not stylistic: the dialog box splits on
+ * blank lines and pages one paragraph at a time through a 30ms/char typewriter.
+ * So the prompt bounds the reading *by construction* — a fixed paragraph count,
+ * a per-paragraph length that types out in a readable span, and no markdown,
+ * which would page as literal `##` in a pixel dialog box.
+ *
+ * That bound is also the token budget: 4 paragraphs x ~600 characters is
+ * ~600 output tokens, comfortably under `config.maxOutputTokens`.
+ */
 const generateFortunePrompt = (tarotHand: CardType[]) => {
-  const cardString = tarotHand
-    .map((card: CardType) => {
-      return card?.name;
-    })
-    .join(", ");
+  const cardString = tarotHand.map((card: CardType) => card?.name).join(", ");
 
-  const prompt = `
-    Please provide a detailed and insightful fortune reading based on a draw of 5 tarot cards.
-    Interpret the cards in the context of the querent's life and current situation, offering guidance and insights that can help them navigate their path ahead.
-    The cards drawn are as follows: ${cardString}.
-    Provide a comprehensive reading that covers the past, present, and future aspects, along with any symbolism, emotions, or messages conveyed by the cards.
-    Ensure the reading is both informative and inspiring, offering practical advice and guidance for the querent.
+  return `
+    You are a tarot reader giving a detailed, insightful reading from a draw of 5 cards.
+    The cards drawn, in order, are: ${cardString}.
+
+    Cover the past, the present, and the future, drawing on the symbolism, emotions,
+    and messages of the cards named above, and close with practical guidance for the
+    querent. Be informative and inspiring, and speak directly to the querent.
+
+    Format requirements, which the reading must follow exactly:
+    - Exactly 4 paragraphs: past, present, future, guidance.
+    - Separate paragraphs with a blank line.
+    - Keep every paragraph under 600 characters.
+    - Plain prose only: no markdown, no headings, no lists, no titles.
   `;
-
-  return prompt;
 };
 
 export type GeneratedFortune = {
@@ -40,10 +51,29 @@ export type GeneratedFortune = {
 };
 
 /**
- * One live generation. `max_tokens` is the second half of the spend cap: the
- * reservation assumes a bounded completion, so the request has to enforce that
- * bound. Whoever changes the model (#12) may need the newer
- * `max_completion_tokens` spelling — the cap depends on one of the two being set.
+ * Trims a completion the model did not finish to its last complete sentence.
+ *
+ * Reaching the token ceiling should not happen — the prompt asks for a reading
+ * roughly 15% shorter than the ceiling allows — but if it does, the visitor
+ * would otherwise be paged a sentence that stops mid-word. Losing text is the
+ * bug this ticket exists to kill, so the drop is logged rather than swallowed.
+ */
+const trimUnfinished = (reading: string) => {
+  const lastStop = Math.max(
+    reading.lastIndexOf(". "),
+    reading.lastIndexOf(".\n"),
+    reading.trimEnd().endsWith(".") ? reading.trimEnd().length - 1 : -1
+  );
+  console.warn(
+    `generateFortune: completion hit max_completion_tokens (${config.maxOutputTokens}); trimming an unfinished sentence`
+  );
+  return lastStop > 0 ? reading.slice(0, lastStop + 1) : reading;
+};
+
+/**
+ * One live generation. `max_completion_tokens` is the second half of the spend
+ * cap: the reservation assumes a bounded completion, so the request has to
+ * enforce that bound.
  *
  * The hand is required: it always comes from the server-side hold, never from
  * the client.
@@ -54,14 +84,16 @@ export const generateFortune = async (
   const response = await getOpenAIClient().chat.completions.create({
     messages: [{ role: "user", content: generateFortunePrompt(tarotHand) }],
     model: FORTUNE_MODEL,
-    max_tokens: config.maxOutputTokens,
+    max_completion_tokens: config.maxOutputTokens,
   });
 
-  const reading = response?.choices?.[0]?.message?.content;
+  const choice = response?.choices?.[0];
+  const reading = choice?.message?.content;
   if (!reading) return null;
 
   return {
-    reading,
+    reading:
+      choice.finish_reason === "length" ? trimUnfinished(reading) : reading,
     model: response.model ?? FORTUNE_MODEL,
     usage: {
       promptTokens: response.usage?.prompt_tokens ?? 0,
