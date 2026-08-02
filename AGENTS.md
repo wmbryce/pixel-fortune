@@ -110,6 +110,15 @@ an interrupted flip cannot strand the card off the table; it is clamped to
 is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
 bounce to express. Decided in #13, which measured the alternatives.
 
+## The tarot background is 16:9 and a phone is not
+
+`src/app/tarot/background.css`; its header comment carries the reasoning and the
+measurements. The one fact the file cannot show: `#0d0e24` is the illustration's
+own border colour, sampled from its corners, which is why filling beyond the art
+with it reads as an extension rather than a letterbox. Neither `cover` nor
+`contain` works below 4:3 — one crops the tableau away, the other downscales
+pixel art 4.6x. Decided in #14.
+
 ## TypeScript ceiling
 
 The binding constraint is `typescript-eslint` (vendored under `eslint-config-next`),

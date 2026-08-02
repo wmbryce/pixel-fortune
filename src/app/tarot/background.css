@@ -1,8 +1,42 @@
+/* The illustration is 16:9 and a phone is not, so `cover` on a tall viewport
+   scaled it until only a 474px-wide slice of 1792 survived — the table, both
+   lanterns and both cats gone, leaving an undifferentiated wall of moon.
+
+   #0d0e24 is the art's own border colour, sampled from its corners, so the
+   fill beyond the image is an extension of it rather than a letterbox. Below
+   4:3 the image is sized to 1.7x the viewport width instead of cover: the
+   whole tableau stays in frame at a magnification that suits pixel art, and a
+   gradient carries it into the fill where the cards and the dialog sit.
+
+   `background-attachment: fixed` is gone. It bought nothing — the layout fits
+   the viewport, so there is no scroll to decouple from — and it is a known
+   source of scroll jank on iOS. */
 .custom-background {
-  background-image: url("/assets/background/tarot_background_7.png");
-  background-size: cover; /* This will make sure your image covers the whole page */
-  background-repeat: no-repeat; /* This will prevent the image from repeating */
-  background-attachment: fixed;
-  background-position: center;
-  /* background-color: #ffffff; */
+  background-color: #0d0e24;
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(13, 14, 36, 0) 26%,
+      rgba(13, 14, 36, 0.86) 66%,
+      #0d0e24 94%
+    ),
+    url('/assets/background/tarot_background_7.png');
+  background-size:
+    auto,
+    170% auto;
+  background-position:
+    center,
+    50% 4%;
+}
+
+@media (min-aspect-ratio: 4/3) {
+  .custom-background {
+    background-size:
+      auto,
+      cover;
+    background-position:
+      center,
+      center;
+  }
 }

@@ -1,0 +1,16 @@
+/* The continue affordance is keyboard on a desktop and a tap on a phone, so
+   both strings are rendered and the input capability picks one. A media query
+   rather than a user-agent guess or a post-hydration effect: it is correct in
+   the first paint, and correct again if a keyboard is attached later. */
+.only-pointer {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .only-pointer {
+    display: inline;
+  }
+  .only-touch {
+    display: none;
+  }
+}
