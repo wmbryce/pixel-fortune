@@ -1,5 +1,6 @@
 import { CardType } from "@/types";
 import { config } from "../config";
+import { noteCeilingHit } from "../ceiling";
 import { FORTUNE_MODEL } from "../model";
 import OpenAI from "openai";
 
@@ -47,18 +48,26 @@ const generateFortunePrompt = (tarotHand: CardType[]) => {
 
 export type GeneratedFortune = {
   reading: string;
+  /**
+   * The completion ran into the token ceiling. Carried separately from the text
+   * because a generation cut off at the ceiling is truncated whether or not the
+   * trim below had to remove anything — and a truncated reading must never be
+   * written into the shared cache pool.
+   */
+  truncated: boolean;
   model: string;
   usage: { promptTokens: number; completionTokens: number };
 };
 
 /**
- * Trims a completion the model did not finish to its last complete sentence.
+ * Trims a completion the model did not finish to its last complete sentence,
+ * and describes what it did for the log.
  *
  * Reaching the token ceiling should not happen — the prompt asks for a reading
  * roughly 15% shorter than the ceiling allows — but if it does, the visitor
  * would otherwise be paged a sentence that stops mid-word. Losing text is the
- * bug this ticket exists to kill, so the drop is logged rather than swallowed,
- * and is never claimed when nothing was dropped.
+ * bug this ticket exists to kill, so the ceiling hit is always recorded, and a
+ * trim is never claimed when nothing was actually dropped.
  *
  * A fragment with no complete sentence in it has nothing to fall back to, so
  * there the cut is made visible in the reading itself rather than handed over
@@ -66,12 +75,10 @@ export type GeneratedFortune = {
  */
 const SENTENCE_ENDS = [".", "!", "?"];
 
-const trimUnfinished = (reading: string) => {
+type Trimmed = { reading: string; detail: string };
+
+const trimUnfinished = (reading: string): Trimmed => {
   const full = reading.trimEnd();
-  const warn = (what: string) =>
-    console.warn(
-      `generateFortune: completion hit max_completion_tokens (${config.maxOutputTokens}); ${what}`
-    );
 
   const lastStop = Math.max(
     ...SENTENCE_ENDS.flatMap(mark => [
@@ -83,16 +90,21 @@ const trimUnfinished = (reading: string) => {
 
   if (lastStop > 0) {
     const trimmed = full.slice(0, lastStop + 1);
-    if (trimmed.length < full.length) {
-      warn(`trimmed ${full.length - trimmed.length} unfinished characters`);
-    }
-    return trimmed;
+    return {
+      reading: trimmed,
+      detail:
+        trimmed.length < full.length
+          ? `trimmed ${full.length - trimmed.length} unfinished characters`
+          : "it ended on a complete sentence, so nothing was trimmed",
+    };
   }
 
   const lastBreak = full.search(/\s\S*$/);
   const kept = lastBreak > 0 ? full.slice(0, lastBreak) : full;
-  warn("no complete sentence to trim back to; marking the cut");
-  return `${kept}…`;
+  return {
+    reading: `${kept}…`,
+    detail: "no complete sentence to trim back to; marking the cut",
+  };
 };
 
 /**
@@ -116,9 +128,13 @@ export const generateFortune = async (
   const reading = choice?.message?.content;
   if (!reading) return null;
 
+  const truncated = choice.finish_reason === "length";
+  const trimmed = truncated ? trimUnfinished(reading) : null;
+  if (trimmed) noteCeilingHit(trimmed.detail);
+
   return {
-    reading:
-      choice.finish_reason === "length" ? trimUnfinished(reading) : reading,
+    reading: trimmed?.reading ?? reading,
+    truncated,
     model: response.model ?? FORTUNE_MODEL,
     usage: {
       promptTokens: response.usage?.prompt_tokens ?? 0,

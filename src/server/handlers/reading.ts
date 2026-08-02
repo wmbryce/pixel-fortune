@@ -165,15 +165,24 @@ async function settleGeneration(
     reservation,
     costMicros(generated.model, generated.usage)
   );
-  await cacheReading({
-    handIds: hand.map(card => card.id),
-    reading: generated.reading,
-    model: generated.model,
-    createdAt: new Date().toISOString(),
-  });
+
+  // A reading the token ceiling cut short is this visitor's alone: seeding the
+  // shared pool with it would re-serve a visibly short reading to everyone
+  // else indefinitely, and in cached mode it is the only reading source there
+  // is — a transient defect made permanent.
+  if (!generated.truncated) {
+    await cacheReading({
+      handIds: hand.map(card => card.id),
+      reading: generated.reading,
+      model: generated.model,
+      createdAt: new Date().toISOString(),
+    });
+  }
 
   // Rewrite the hold as cached so a retry or a double-submit replays this
-  // reading instead of paying for another one.
+  // reading instead of paying for another one. A truncated reading is rewritten
+  // too: a replay of the same token is the same visitor asking for the reading
+  // they already paid for, not another visitor being handed it.
   await getStore().setEx(
     holdKey(token),
     JSON.stringify({

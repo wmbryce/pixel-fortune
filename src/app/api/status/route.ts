@@ -12,6 +12,7 @@
  */
 import { budgetStatus } from '@/server/budget';
 import { cacheSize } from '@/server/cache';
+import { ceilingHits } from '@/server/ceiling';
 import { config, MICROS_PER_USD } from '@/server/config';
 import { getStore, noteStoreFailure, storeFailures } from '@/server/store';
 
@@ -71,5 +72,9 @@ export async function GET() {
     model: perReading.model,
     maxPromptTokens: perReading.maxPromptTokens,
     maxOutputTokens: perReading.maxOutputTokens,
+    // Generations cut off by `maxOutputTokens`. Per-instance like the store
+    // counter above, so a zero here is weaker evidence than the log — but a
+    // count that climbs means the ceiling is set too low.
+    ceilingHits: ceilingHits(),
   });
 }

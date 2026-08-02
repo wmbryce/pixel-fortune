@@ -28,6 +28,11 @@ break without noticing:
 - **In cached mode the reading is chosen first and its cards are dealt.** Never
   turn it into "deal a spread, then look up a reading for it" — five of 78 cards
   essentially never repeats, so that lookup would miss every time.
+- **A truncated reading never enters the pool.** `GeneratedFortune.truncated`
+  (set from `finish_reason === 'length'`, whether or not trimming removed
+  anything) skips the `cacheReading` call in `settleGeneration`; the visitor who
+  paid for it still gets it, and the hold still replays it for that same token.
+  Caching one would re-serve a visibly short reading forever.
 - **Budget is reserved before the OpenAI call, not after.** The reserve is one
   atomic `INCRBY`; check-then-call lets a concurrent burst through the cap.
 - **A reservation is settled against the month it was charged to**, carried on
@@ -67,12 +72,14 @@ Durable state wants Redis (`UPSTASH_REDIS_REST_URL`/`_TOKEN`, or the
 per-instance memory — fine for `npm run dev`, useless on Vercel.
 
 `GET /api/status` reports mode, spend, cache size, the derived reservation (and
-what it was derived from), and which store is live.
+what it was derived from), `ceilingHits`, and which store is live.
 Store failures are contained everywhere else (a visitor gets the cold-start
 reading, never an error), so this endpoint is where that shows up: `mode` is
 `degraded` — never `live` — when the store cannot answer or recently failed a
 command, and `store.lastFailure` names the site. The failure counter is
 per-instance, so the log line `noteStoreFailure` emits is the durable record.
+`ceilingHits` (`src/server/ceiling.ts`) is the same shape for the other invisible
+failure: a count that climbs means `PF_MAX_OUTPUT_TOKENS` is too low.
 
 ## The reading's shape is load-bearing
 

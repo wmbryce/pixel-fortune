@@ -20,6 +20,11 @@ import { budgetStatus, sweepExpiredHolds } from '@/server/budget';
 import { cacheSize, cacheReading, randomCachedReading } from '@/server/cache';
 import { COLD_START_READING } from '@/server/data/cold-start-reading';
 import { config, MICROS_PER_USD } from '@/server/config';
+import {
+  ceilingHits,
+  noteCeilingHit,
+  resetCeilingHitsForTests,
+} from '@/server/ceiling';
 import { visitorIdentity } from '@/server/rate-limit';
 import { TarotDeck } from '@/server/data/tarot-deck';
 import {
@@ -67,10 +72,13 @@ beforeEach(() => {
     calls += 1;
     return {
       reading: reading(calls),
+      truncated: false,
       model: 'test-model',
       usage: { promptTokens: 150, completionTokens: 800 },
     };
   });
+
+  resetCeilingHitsForTests();
 
   vi.stubEnv('PF_MONTHLY_CAP_USD', capUsd(3));
   vi.stubEnv('PF_RATE_VISITOR', '100');
@@ -449,6 +457,21 @@ describe('store health', () => {
     expect(after.readingsRemaining).toBe(9);
   });
 
+  it('reports how often the token ceiling was hit', async () => {
+    vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { GET } = await import('@/app/api/status/route');
+
+    expect((await (await GET()).json()).ceilingHits).toBe(0);
+
+    // A ceiling being hit regularly means the token limit is too low, which has
+    // to be discoverable without grepping the logs.
+    noteCeilingHit('a completion was cut off');
+
+    expect(ceilingHits()).toBe(1);
+    expect((await (await GET()).json()).ceilingHits).toBe(1);
+  });
+
   it('reports live and reachable while the store is healthy', async () => {
     vi.stubEnv('PF_MONTHLY_CAP_USD', '100');
     await draw(visitor('healthy'));
@@ -513,6 +536,28 @@ describe('cached mode', () => {
     expect(replayed?.hand.map(c => c.name)).toEqual(
       TarotDeck.slice(0, 5).map(c => c.name)
     );
+  });
+
+  it('never seeds the pool with a reading the token ceiling cut short', async () => {
+    const cut = 'A reading the ceiling cut short…';
+    generateFortune.mockResolvedValue({
+      reading: cut,
+      truncated: true,
+      model: 'test-model',
+      usage: { promptTokens: 150, completionTokens: 700 },
+    });
+
+    const dealt = await draw(visitor('cut'));
+
+    // The visitor who paid for it still gets it, and it is still charged; only
+    // the cache write is skipped, so no later visitor is handed a short reading
+    // — including in cached mode, where the pool is the only source there is.
+    expect(dealt.reading).toBe(cut);
+    expect((await budgetStatus()).spentMicros).toBe(PER_READING_MICROS);
+    expect(await cacheSize()).toBe(0);
+    // A replay of the same token is the same visitor's own reading, so the hold
+    // still carries it.
+    expect(await resolveReading(dealt.token)).toBe(cut);
   });
 
   it('grows the cache by one per live reading', async () => {

@@ -15,6 +15,8 @@ vi.mock('openai', () => ({
 
 import { generateFortune, FORTUNE_MODEL } from '@/server/handlers/fortune';
 import { config } from '@/server/config';
+import { MAX_PROMPT_TOKENS } from '@/server/model';
+import { ceilingHits, resetCeilingHitsForTests } from '@/server/ceiling';
 
 const HAND: CardType[] = ['The Star', 'The Moon', 'The Sun', 'The Tower', 'The Fool'].map(
   (name, id) => ({ id, name, image: `/${id}.png`, description: name })
@@ -28,6 +30,7 @@ const completion = (content: string, finish_reason = 'stop') => ({
 
 beforeEach(() => {
   create.mockReset();
+  resetCeilingHitsForTests();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -54,11 +57,30 @@ describe('generateFortune', () => {
     }
   });
 
+  it('keeps the prompt inside the bound the reservation is derived from', async () => {
+    create.mockResolvedValue(completion('A reading.'));
+
+    await generateFortune(HAND);
+
+    // MAX_PROMPT_TOKENS is load-bearing: the reservation is derived from it, and
+    // the charge is capped at the reservation, so a prompt that outgrows it
+    // overspends the month silently. Counted at a deliberately pessimistic 3
+    // characters per token (English prose averages ~4) rather than tokenising
+    // for real.
+    const prompt = create.mock.calls[0][0].messages[0].content;
+    expect(prompt.length).toBeLessThanOrEqual(MAX_PROMPT_TOKENS * 3);
+  });
+
   it('returns a finished reading untouched', async () => {
     const reading = 'Past paragraph.\n\nPresent paragraph.\n\nFuture paragraph.';
     create.mockResolvedValue(completion(reading));
 
-    await expect(generateFortune(HAND)).resolves.toMatchObject({ reading });
+    await expect(generateFortune(HAND)).resolves.toMatchObject({
+      reading,
+      truncated: false,
+    });
+    expect(console.warn).not.toHaveBeenCalled();
+    expect(ceilingHits()).toBe(0);
   });
 
   it('trims a completion that ran into the token ceiling', async () => {
@@ -69,8 +91,12 @@ describe('generateFortune', () => {
     const generated = await generateFortune(HAND);
 
     expect(generated?.reading).toBe('A finished sentence.');
+    expect(generated?.truncated).toBe(true);
     // Dropping text is the bug this fix exists to kill, so it is never silent.
-    expect(console.warn).toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('trimmed 25 unfinished characters')
+    );
+    expect(ceilingHits()).toBe(1);
   });
 
   it.each(['?', '!'])(
@@ -97,11 +123,28 @@ describe('generateFortune', () => {
     expect(console.warn).toHaveBeenCalled();
   });
 
-  it('does not claim a trim it did not make', async () => {
+  it('records a ceiling hit that needed no trim, without claiming one', async () => {
     const reading = 'A reading that ended exactly on the ceiling.';
     create.mockResolvedValue(completion(reading, 'length'));
 
-    await expect(generateFortune(HAND)).resolves.toMatchObject({ reading });
-    expect(console.warn).not.toHaveBeenCalled();
+    // The signal is finish_reason, not whether the text happened to need
+    // cutting: a generation cut off mid-reading is truncated either way.
+    await expect(generateFortune(HAND)).resolves.toMatchObject({
+      reading,
+      truncated: true,
+    });
+    expect(ceilingHits()).toBe(1);
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('nothing was trimmed')
+    );
+  });
+
+  it('counts every ceiling hit', async () => {
+    create.mockResolvedValue(completion('Cut short mid-w', 'length'));
+
+    await generateFortune(HAND);
+    await generateFortune(HAND);
+
+    expect(ceilingHits()).toBe(2);
   });
 });
