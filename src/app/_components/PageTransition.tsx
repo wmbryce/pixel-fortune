@@ -45,19 +45,28 @@ export function usePageLeave(): Leave {
 
 const PAGE = { duration: DURATION.page, ease: EASE_OUT };
 
-const VARIANTS = {
+export const VARIANTS = {
   enterFrom: { opacity: 0, scale: 0.985 },
   enter: { opacity: 1, scale: 1, transition: PAGE },
   exitForward: { opacity: 0, scale: 1.03, transition: PAGE },
   exitBack: { opacity: 0, scale: 0.98, transition: PAGE },
 };
 
-/** Same seams, no scale: the fade is what survives the preference. */
-const REDUCED_VARIANTS = {
-  enterFrom: { opacity: 0 },
-  enter: { opacity: 1, transition: CROSSFADE },
-  exitForward: { opacity: 0, transition: CROSSFADE },
-  exitBack: { opacity: 0, transition: CROSSFADE },
+/**
+ * Same seams, no travel: the fade is what survives the preference.
+ *
+ * `scale: 1` is stated rather than omitted, and it is load-bearing. The server
+ * cannot read the preference — `useReducedMotion()` is false there — so every
+ * document is delivered carrying `initial`'s `scale(0.985)` inline. Leaving
+ * `scale` out of these variants gives the client nothing to write over it, and
+ * a direct load under reduced motion renders the whole page at 98.5% forever:
+ * a non-integer downscale, on pixel art, permanently. Caught in the browser.
+ */
+export const REDUCED_VARIANTS = {
+  enterFrom: { opacity: 0, scale: 1 },
+  enter: { opacity: 1, scale: 1, transition: CROSSFADE },
+  exitForward: { opacity: 0, scale: 1, transition: CROSSFADE },
+  exitBack: { opacity: 0, scale: 1, transition: CROSSFADE },
 };
 
 type Props = {
