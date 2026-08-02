@@ -19,7 +19,8 @@ import Card, {
   showsLabel,
 } from './Card';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
+import { CROSSFADE, SPRING } from '../_libs/motion';
 
 type Props = {
   tarotHand?: CardType[];
@@ -34,8 +35,6 @@ const GAP = 12;
  */
 const DEAL_MS = 260;
 const SETTLE_DELAY_MS = 250;
-const ARRIVE = { type: 'spring', bounce: 0, duration: 0.55 } as const;
-const SETTLE = { type: 'spring', bounce: 0, duration: 0.45 } as const;
 
 /** Five across while they stay usably large; 2+3 once they do not. */
 const ONE_ROW_MIN_CARD = 96;
@@ -130,6 +129,7 @@ function useStageBox() {
 }
 
 export default function CardTable({ tarotHand, setAllRevealed }: Props) {
+  const reduced = useReducedMotion() ?? false;
   const [stageRef, box] = useStageBox();
   const [dealt, setDealt] = useState(0);
   const [settled, setSettled] = useState(false);
@@ -221,9 +221,25 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
             key={index}
             className="absolute left-0 top-0"
             style={{ zIndex: settled ? 1 : 10 - Math.abs(index - 2) }}
-            initial={{ ...fan(index), y: -box.h }}
-            animate={settled ? grid(index) : fan(index)}
-            transition={settled ? SETTLE : ARRIVE}
+            // Reduced motion keeps the deal — the cards still arrive one at a
+            // time, on the same DEAL_MS beat — and drops the travel: each one
+            // fades up in the seat it will keep, never crossing the screen and
+            // never rotating out of the fan.
+            initial={
+              reduced
+                ? { ...grid(index), opacity: 0 }
+                : { ...fan(index), y: -box.h }
+            }
+            animate={
+              reduced
+                ? { ...grid(index), opacity: 1 }
+                : settled
+                  ? grid(index)
+                  : fan(index)
+            }
+            transition={
+              reduced ? CROSSFADE : settled ? SPRING.settle : SPRING.arrive
+            }
           >
             <Card
               id={'t-card-' + index}
