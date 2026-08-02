@@ -29,6 +29,7 @@ function renderCard(reveal: boolean, setReveal = vi.fn()) {
     <Card
       id="t-card-0"
       index={0}
+      width={96}
       data={DATA}
       reveal={reveal}
       setReveal={setReveal}
@@ -69,6 +70,7 @@ describe('Card reveal', () => {
       <Card
         id="t-card-0"
         index={0}
+        width={96}
         data={DATA}
         reveal
         setReveal={setReveal}
@@ -83,7 +85,13 @@ describe('Card reveal', () => {
 
   it('renders nothing without data', () => {
     const { container } = render(
-      <Card id="t-card-0" index={0} data={null} setReveal={vi.fn()} />
+      <Card
+        id="t-card-0"
+        index={0}
+        width={96}
+        data={null}
+        setReveal={vi.fn()}
+      />
     );
     expect(container.innerHTML).toBe('');
   });

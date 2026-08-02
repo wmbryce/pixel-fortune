@@ -14,6 +14,8 @@ import {
 interface Props extends HTMLMotionProps<'div'> {
   id: string;
   index: number;
+  /** Art width in px. The table derives it from the space it has (#14). */
+  width: number;
   data?: CardType | null;
   reveal?: boolean;
   setReveal: (value: number) => void;
@@ -22,8 +24,26 @@ interface Props extends HTMLMotionProps<'div'> {
 const FLIP = { type: 'spring', bounce: 0, duration: 0.4 } as const;
 const HOVER = { type: 'spring', bounce: 0, duration: 0.2 } as const;
 
+/** `p-2` on the white frame plus `p-2` on the tint, both sides. */
+const CHROME = 32;
+const LABEL_H = 22;
+
+/**
+ * The name is unreadable under a small card, and dropping its row is the
+ * difference between the spread fitting a short viewport and not. Screen
+ * readers still get the name from the front face's `alt`.
+ */
+export const showsLabel = (width: number) => width >= 64;
+
+/** What a card occupies once framed, tinted and captioned. */
+export const cardCell = (width: number) => ({
+  width: width + CHROME,
+  height:
+    Math.round(width * 1.5) + CHROME + (showsLabel(width) ? LABEL_H : 0),
+});
+
 export default function Card(props: Props) {
-  const { id, data, reveal } = props;
+  const { id, data, reveal, width } = props;
 
   // The back faces the viewer at 0deg and the front at 180deg, so the card
   // turns back along the axis it came from.
@@ -56,13 +76,16 @@ export default function Card(props: Props) {
     visible: { opacity: 1 },
   };
 
+  const artHeight = Math.round(width * 1.5);
+
   return !!data ? (
     <motion.div
       id={'background.' + id}
       variants={backgroundVariants}
       initial="hidden"
       animate={reveal ? 'visible' : 'hidden'}
-      className="z-0 top-0 left-2 bg-brown_04 flex flex-col justify-end rounded-md m-1 sm:m-2 md:m-3 lg:m-4 p-3"
+      style={{ width: cardCell(width).width }}
+      className="bg-brown_04 flex flex-col rounded-md p-2"
     >
       <div style={{ perspective: 1000 }}>
         <motion.div
@@ -80,13 +103,16 @@ export default function Card(props: Props) {
               transform: 'rotateY(180deg)',
             }}
           >
-            <div className="relative w-24 h-36 sm:w-32 sm:h-48 md:w-40 md:h-60 xl:w-48 xl:h-72">
+            <div
+              className="relative"
+              style={{ width, height: artHeight }}
+            >
               <Image
                 fill
                 className="object-cover rounded-sm"
                 src={'/assets/cards/' + data.image}
                 alt={data.name}
-                sizes="(max-width: 640px) 6rem, (max-width: 768px) 8rem, (max-width: 1024px) 10rem, 12rem"
+                sizes={`${Math.ceil(width)}px`}
               />
             </div>
           </div>
@@ -100,20 +126,23 @@ export default function Card(props: Props) {
                 className="object-cover rounded-sm"
                 src="/assets/cards/CardBack.png"
                 alt="Card Back"
-                sizes="(max-width: 640px) 6rem, (max-width: 768px) 8rem, (max-width: 1024px) 10rem, 12rem"
+                sizes={`${Math.ceil(width)}px`}
               />
             </div>
           </div>
         </motion.div>
       </div>
-      <motion.div
-        className="text-brown_02 align-center font-sans line-clamp-1"
-        variants={textVariants}
-        initial="hidden"
-        animate={reveal ? 'visible' : 'hidden'}
-      >
-        {data.name}
-      </motion.div>
+      {showsLabel(width) && (
+        <motion.div
+          className="text-brown_02 text-center font-sans text-xs line-clamp-1"
+          style={{ height: LABEL_H, lineHeight: `${LABEL_H}px` }}
+          variants={textVariants}
+          initial="hidden"
+          animate={reveal ? 'visible' : 'hidden'}
+        >
+          {data.name}
+        </motion.div>
+      )}
     </motion.div>
   ) : null;
 }
