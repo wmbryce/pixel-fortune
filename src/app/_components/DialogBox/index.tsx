@@ -21,7 +21,7 @@ import {
 import { CardType } from '@/types';
 import { cn } from '../../_libs/utils';
 import { usePageLeave } from '../PageTransition';
-import { CROSSFADE, DURATION, SPRING } from '../../_libs/motion';
+import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
 
 type tableStateType = {
   label: string;
@@ -69,10 +69,7 @@ function DialogBox({
   // keeps the prose and skips the shake, which is pure vestibular noise.
   useEffect(() => {
     if (!blocked || reduced) return;
-    const controls = animate(shakeX, [0, -8, 8, -5, 5, 0], {
-      duration: DURATION.shake,
-      ease: 'easeOut',
-    });
+    const controls = animate(shakeX, SHAKE.keyframes, SHAKE.transition);
     return () => controls.stop();
   }, [blocked, reduced, shakeX]);
 

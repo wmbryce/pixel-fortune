@@ -12,7 +12,7 @@ import {
   useTransform,
 } from 'motion/react';
 import { useHoverCapable } from '../_libs/media';
-import { CROSSFADE, SPRING } from '../_libs/motion';
+import { CROSSFADE, DIM, SPRING } from '../_libs/motion';
 
 interface Props extends HTMLMotionProps<'div'> {
   id: string;
@@ -103,17 +103,20 @@ export default function Card(props: Props) {
         <motion.div
           id={props.id}
           onClick={revealCard}
+          // Both pointer states survive reduced motion as a dim rather than a
+          // lift, the shallower one for hover: feedback that registers nothing
+          // at all is the one thing a disable would cost. Still gated on the
+          // device having a hover, because a tap fires pointer-enter too.
           whileHover={
-            hoverable && !reduced
-              ? { y: -10, transition: SPRING.nudge }
+            hoverable
+              ? reduced
+                ? { opacity: DIM.hover, transition: CROSSFADE }
+                : { y: -10, transition: SPRING.nudge }
               : undefined
           }
-          // Press feedback survives reduced motion as a dim rather than a lift:
-          // a tap that registers nothing at all is the one thing a disable
-          // would cost.
           whileTap={
             reduced
-              ? { opacity: 0.75, transition: CROSSFADE }
+              ? { opacity: DIM.press, transition: CROSSFADE }
               : { y: -4, transition: SPRING.nudge }
           }
           style={{ transformStyle: 'preserve-3d', rotateY, scale, z }}

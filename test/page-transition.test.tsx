@@ -33,9 +33,13 @@ function Leaver({ href, back }: { href: string; back?: boolean }) {
 const main = () => document.querySelector('main') as HTMLElement;
 const go = () => act(() => void document.getElementById('go')?.click());
 
-const mount = (props: { href: string; back?: boolean }) =>
+const mount = (props: {
+  href: string;
+  back?: boolean;
+  prefetch?: readonly string[];
+}) =>
   render(
-    <PageTransition className="page">
+    <PageTransition className="page" prefetch={props.prefetch}>
       <Leaver {...props} />
     </PageTransition>
   );
@@ -80,6 +84,32 @@ describe('PageTransition', () => {
   it('renders the page it was given rather than wrapping it', () => {
     mount({ href: '/tarot' });
     expect(main().className).toContain('page');
+  });
+
+  /**
+   * The entrance may not be the thing that makes the page visible. `initial` is
+   * the only state the server can inline, so it has to be the visible one, and
+   * the fade-in belongs to `page-transition.css` — which renders with no JS at
+   * all and picks up `prefers-reduced-motion` from its own media query.
+   */
+  it('is visible before anything animates', () => {
+    mount({ href: '/tarot' });
+    expect(main().style.opacity === '' || main().style.opacity === '1').toBe(
+      true
+    );
+    expect(main().className).toContain('page-enter');
+    for (const variant of [VARIANTS, REDUCED_VARIANTS])
+      expect(variant.enter.opacity).toBe(1);
+  });
+
+  /**
+   * A ~240ms exit is not a head start a cold route can arrive inside, and the
+   * outgoing screen is at zero opacity by the time the push fires — so the warm
+   * has to happen long before the visitor asks to leave.
+   */
+  it('warms the routes it can leave to on mount, not on the way out', () => {
+    mount({ href: '/tarot', prefetch: ['/tarot'] });
+    expect(prefetch).toHaveBeenCalledWith('/tarot');
   });
 
   /**

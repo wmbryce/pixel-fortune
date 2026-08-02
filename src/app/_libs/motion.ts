@@ -49,3 +49,22 @@ export const CROSSFADE = {
   duration: DURATION.crossfade,
   ease: EASE_OUT,
 } satisfies Transition;
+
+/**
+ * The refusal. A keyframe rather than a spring because it has to come back to
+ * exactly where it started, and the amplitudes decay so the last swing reads as
+ * settling rather than stopping. In px, on `x`.
+ */
+export const SHAKE = {
+  keyframes: [0, -8, 8, -5, 5, 0] as number[],
+  transition: {
+    duration: DURATION.shake,
+    ease: EASE_OUT,
+  } satisfies Transition,
+};
+
+/** The press dim that stands in for a lift under reduced motion. */
+export const DIM = {
+  hover: 0.9,
+  press: 0.75,
+} as const;

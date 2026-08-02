@@ -117,13 +117,28 @@ else may hand-type one. `useReducedMotion()` is read in `Card`, `CardTable`,
 `DialogBox` and `PageTransition`, and each one substitutes `CROSSFADE` for its
 spring rather than disabling the animation — the card stops turning but the back
 still fades off it, the deal keeps its beat but each card fades up in its seat,
-and a tap still dims. A blanket disable is the failure mode `test/reduced-motion.test.tsx`
-exists to catch. Decided in #15.
+and hover and press dim instead of lifting. A blanket disable is the failure
+mode `test/reduced-motion.test.tsx` exists to catch. Decided in #15.
 
 Route changes go through `PageTransition` (`usePageLeave(href, direction)`),
 which renders the page's own `<main>` and holds `router.push` until the exit has
 played. Calling `router.push` directly from a screen is the hard swap it
-replaced.
+replaced. Three parts of it are load-bearing and none is decoration:
+
+- **The entrance is CSS** (`_components/page-transition.css`), not motion's
+  `initial`. `initial` is the only state the server can inline, so it has to be
+  the visible one — a motion-owned entrance ships every document with
+  `opacity: 0` on `<main>` and makes the page appear only once it hydrates. The
+  media query gives that entrance its reduced-motion form for free. The class is
+  dropped once the exit starts, because a running CSS animation outranks
+  motion's inline styles.
+- **Every screen declares what it can leave to** (`prefetch={LEAVES_TO}`, warmed
+  on mount). The exit is ~240ms; that is not a head start a cold route arrives
+  inside.
+- **`loading.tsx` under each route** is what the App Router shows while the
+  destination resolves. The push fires *after* the outgoing screen has faded to
+  nothing, so without a boundary a cold hop is a blank screen for the whole
+  fetch — worse than the hard swap this replaced.
 
 Two testing consequences:
 

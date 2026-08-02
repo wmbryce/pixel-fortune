@@ -8,6 +8,9 @@ type Props = {
   children: ReactNode;
 };
 
+/** Module scope so the identity is stable across renders. */
+const LEAVES_TO = ['/welcome'];
+
 export default function TarotLayout({ children }: Props) {
   return (
     // The spread is sized to fit, so at every viewport that can hold it this is
@@ -20,7 +23,10 @@ export default function TarotLayout({ children }: Props) {
     // the exit the reset navigates through. It replaces `animate-fadeIn`, which
     // was a 3s linear keyframe — 10x the budget for a page entrance, and
     // uninterruptible (audit finding #7).
-    <PageTransition className="flex min-h-[100dvh] flex-col bg-black_01 lg:mx-16">
+    <PageTransition
+      prefetch={LEAVES_TO}
+      className="flex min-h-[100dvh] flex-col bg-black_01 lg:mx-16"
+    >
       <PageHeader />
       <div className="custom-background flex flex-1 flex-col">
         {children}

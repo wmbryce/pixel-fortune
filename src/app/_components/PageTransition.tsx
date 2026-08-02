@@ -14,17 +14,25 @@
  * was arrived at from without stashing that across a navigation, and a
  * hydration-safe place to stash it does not exist here — an entrance that reads
  * as "settling into place" is right for both.
+ *
+ * That entrance is CSS (`page-transition.css`), not motion's `initial`. Motion
+ * would have the server inline `opacity: 0` on every document and make the page
+ * visible only once it hydrates; the entrance is an enhancement over a page that
+ * is already on screen, so it must not be the thing that puts it there. Motion
+ * owns the exit, which by definition only exists after hydration.
  */
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { CROSSFADE, DURATION, EASE_OUT } from '../_libs/motion';
+import './page-transition.css';
 
 type Direction = 'forward' | 'back';
 type Leave = (href: string, direction?: Direction) => void;
@@ -46,7 +54,10 @@ export function usePageLeave(): Leave {
 const PAGE = { duration: DURATION.page, ease: EASE_OUT };
 
 export const VARIANTS = {
-  enterFrom: { opacity: 0, scale: 0.985 },
+  /**
+   * Both the resting state and what the server inlines, so it has to be the
+   * visible one. The entrance that used to live here is in the stylesheet.
+   */
   enter: { opacity: 1, scale: 1, transition: PAGE },
   exitForward: { opacity: 0, scale: 1.03, transition: PAGE },
   exitBack: { opacity: 0, scale: 0.98, transition: PAGE },
@@ -57,25 +68,37 @@ export const VARIANTS = {
  *
  * `scale: 1` is stated rather than omitted, and it is load-bearing. The server
  * cannot read the preference — `useReducedMotion()` is false there — so every
- * document is delivered carrying `initial`'s `scale(0.985)` inline. Leaving
- * `scale` out of these variants gives the client nothing to write over it, and
- * a direct load under reduced motion renders the whole page at 98.5% forever:
- * a non-integer downscale, on pixel art, permanently. Caught in the browser.
+ * document is delivered carrying whatever `initial` resolves to under full
+ * motion. Leaving `scale` out of these gives the client nothing to write over
+ * it, and the page keeps a scale it never asked for. Caught in the browser on
+ * the entrance; it is the same trap on the exit.
  */
 export const REDUCED_VARIANTS = {
-  enterFrom: { opacity: 0, scale: 1 },
   enter: { opacity: 1, scale: 1, transition: CROSSFADE },
   exitForward: { opacity: 0, scale: 1, transition: CROSSFADE },
   exitBack: { opacity: 0, scale: 1, transition: CROSSFADE },
 };
 
+/** Stable identity, so the warm-on-mount effect does not re-run every render. */
+const NOTHING: readonly string[] = [];
+
 type Props = {
   children: ReactNode;
   className?: string;
+  /**
+   * Routes this screen can leave to, warmed on mount. The exit is only ~240ms
+   * long, which is not enough of a head start for a cold route to arrive
+   * inside it.
+   */
+  prefetch?: readonly string[];
 };
 
 /** Renders the page's own `<main>`, so this adds no element to the tree. */
-export default function PageTransition({ children, className }: Props) {
+export default function PageTransition({
+  children,
+  className,
+  prefetch = NOTHING,
+}: Props) {
   const router = useRouter();
   const reduced = useReducedMotion() ?? false;
   const [exit, setExit] = useState<{
@@ -83,11 +106,14 @@ export default function PageTransition({ children, className }: Props) {
     direction: Direction;
   } | null>(null);
 
+  useEffect(() => {
+    prefetch.forEach(href => router.prefetch(href));
+  }, [router, prefetch]);
+
   const leave = useCallback<Leave>(
     (href, direction = 'forward') => {
-      // Warmed here rather than on mount: by the time the exit has played the
-      // route should already be in the client cache, so the seam is motion,
-      // not a stall.
+      // Cheap and idempotent, and it covers a destination the screen did not
+      // declare; the declared ones are already warm from mount.
       router.prefetch(href);
       // First call wins. A second key press during the exit must not restart
       // it or redirect it somewhere else.
@@ -102,12 +128,18 @@ export default function PageTransition({ children, className }: Props) {
       : 'exitForward'
     : 'enter';
 
+  // Dropped once the exit starts: a CSS animation outranks motion's inline
+  // styles, so leaving it on would pin the page at its entrance's end state.
+  const classes = [exit ? null : 'page-enter', className]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <LeaveContext.Provider value={leave}>
       <motion.main
-        className={className}
+        className={classes}
         variants={reduced ? REDUCED_VARIANTS : VARIANTS}
-        initial="enterFrom"
+        initial="enter"
         animate={target}
         onAnimationComplete={definition => {
           if (exit && typeof definition === 'string' && definition !== 'enter')

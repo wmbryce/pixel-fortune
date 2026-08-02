@@ -10,13 +10,19 @@
  * renders under the default.
  */
 import React from 'react';
-import { render, act } from '@testing-library/react';
+import { render, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { mediaQueryList } from './setup';
 import { CardType } from '@/types';
+import { DIM } from '@/app/_libs/motion';
 
+// A pointer device that has asked for reduced motion: the case where both
+// pointer states have to answer with something other than travel.
 vi.stubGlobal('matchMedia', (query: string) =>
-  mediaQueryList(query, query.includes('prefers-reduced-motion'))
+  mediaQueryList(
+    query,
+    query.includes('prefers-reduced-motion') || query.includes('hover: hover')
+  )
 );
 
 import Card from '@/app/_components/Card';
@@ -96,6 +102,32 @@ describe('Card under prefers-reduced-motion', () => {
     const front = back().parentElement?.firstElementChild as HTMLElement;
     expect(front.style.transform).toBe('');
     expect(front.style.backfaceVisibility).toBe('');
+  });
+
+  /**
+   * The ticket's core deliverable, and the one the tempting failure takes away:
+   * a press that moves nothing and dims nothing is a press the visitor cannot
+   * tell landed. Deleting the reduced branch of `whileTap` leaves everything
+   * else in this file green.
+   */
+  it('answers a press with a dim, since it may not answer with a lift', async () => {
+    render(card(false));
+    fireEvent.pointerDown(flipper(), { isPrimary: true, button: 0 });
+
+    await vi.waitFor(() =>
+      expect(flipper().style.opacity).toBe(String(DIM.press))
+    );
+    expect(flipper().style.transform ?? '').not.toMatch(/translateY\(-[\d.]/);
+  });
+
+  it('answers a hover the same way, rather than not at all', async () => {
+    render(card(false));
+    fireEvent.pointerEnter(flipper(), { isPrimary: true });
+
+    await vi.waitFor(() =>
+      expect(flipper().style.opacity).toBe(String(DIM.hover))
+    );
+    expect(flipper().style.transform ?? '').not.toMatch(/translateY\(-[\d.]/);
   });
 });
 
