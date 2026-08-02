@@ -110,6 +110,30 @@ an interrupted flip cannot strand the card off the table; it is clamped to
 is critically damped on purpose (`bounce: 0`) — a tap carries no momentum for a
 bounce to express. Decided in #13, which measured the alternatives.
 
+## Motion comes from tokens, and reduced motion is a cross-fade
+
+`src/app/_libs/motion.ts` owns every spring and duration in the app; nothing
+else may hand-type one. `useReducedMotion()` is read in `Card`, `CardTable`,
+`DialogBox` and `PageTransition`, and each one substitutes `CROSSFADE` for its
+spring rather than disabling the animation — the card stops turning but the back
+still fades off it, the deal keeps its beat but each card fades up in its seat,
+and a tap still dims. A blanket disable is the failure mode `test/reduced-motion.test.tsx`
+exists to catch. Decided in #15.
+
+Route changes go through `PageTransition` (`usePageLeave(href, direction)`),
+which renders the page's own `<main>` and holds `router.push` until the exit has
+played. Calling `router.push` directly from a screen is the hard swap it
+replaced.
+
+Two testing consequences:
+
+- **jsdom ships no `matchMedia`**, so `test/setup.ts` installs one that answers
+  false to everything.
+- **`motion` reads the preference once, lazily, on the first `useReducedMotion`
+  in a module graph.** A spec wanting the reduced answer must stub `matchMedia`
+  before its first render and cannot share a file with one rendering under the
+  default.
+
 ## The spread is measured, not set by breakpoints
 
 `CardTable.tsx` measures its stage and calls `planSpread`, which builds both
