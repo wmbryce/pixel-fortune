@@ -131,7 +131,11 @@ replaced. Three parts of it are load-bearing and none is decoration:
   `opacity: 0` on `<main>` and makes the page appear only once it hydrates. The
   media query gives that entrance its reduced-motion form for free. The class is
   dropped once the exit starts, because a running CSS animation outranks
-  motion's inline styles.
+  motion's inline styles — so the exit seeds itself with the opacity that was
+  actually on screen, or interrupting the entrance would jump to full
+  brightness before fading. Its durations and easing are restated from the
+  tokens (a stylesheet cannot import them) and pinned against them in
+  `test/page-transition.test.tsx`.
 - **Every screen declares what it can leave to** (`prefetch={LEAVES_TO}`, warmed
   on mount). The exit is ~240ms; that is not a head start a cold route arrives
   inside.

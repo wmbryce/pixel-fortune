@@ -5,8 +5,11 @@
  * that only asserts "it navigated eventually" would pass on the old code.
  */
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DURATION, EASE_OUT } from '@/app/_libs/motion';
 
 const push = vi.fn();
 const prefetch = vi.fn();
@@ -14,6 +17,12 @@ const prefetch = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, prefetch }),
 }));
+
+const stylesheet = readFileSync(
+  resolve(process.cwd(), 'src/app/_components/page-transition.css'),
+  'utf8'
+);
+const ms = (seconds: number) => `${Math.round(seconds * 1000)}ms`;
 
 import PageTransition, {
   usePageLeave,
@@ -100,6 +109,38 @@ describe('PageTransition', () => {
     expect(main().className).toContain('page-enter');
     for (const variant of [VARIANTS, REDUCED_VARIANTS])
       expect(variant.enter.opacity).toBe(1);
+  });
+
+  /**
+   * The stylesheet cannot import the tokens — it has to render before any JS
+   * can read them — so the duplication is unavoidable and this is what keeps
+   * it honest. Without it, raising `DURATION.page` lengthens the exit while
+   * the entrance quietly stays where it was, and nothing says so.
+   */
+  it('states the same durations and easing the tokens do', () => {
+    expect(stylesheet).toContain(
+      `animation: page-enter ${ms(DURATION.page)} ` +
+        `cubic-bezier(${EASE_OUT.join(', ')}) backwards;`
+    );
+    expect(stylesheet).toContain(
+      `animation-duration: ${ms(DURATION.crossfade)};`
+    );
+  });
+
+  /**
+   * The exit takes the CSS entrance away with it — a running CSS animation
+   * would outrank motion's inline styles for the rest of the entrance — so an
+   * exit that started from motion's own last value would jump to full
+   * brightness before fading. It has to pick up whatever is on screen.
+   */
+  it('leaves from the opacity the entrance had reached, not from full', async () => {
+    mount({ href: '/tarot' });
+    main().style.opacity = '0.4';
+
+    await go();
+
+    expect(Number(main().style.opacity)).toBeLessThanOrEqual(0.4);
+    await vi.waitFor(() => expect(push).toHaveBeenCalled());
   });
 
   /**

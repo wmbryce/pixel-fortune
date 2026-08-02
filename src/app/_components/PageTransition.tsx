@@ -26,10 +26,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { CROSSFADE, DURATION, EASE_OUT } from '../_libs/motion';
 import './page-transition.css';
@@ -101,6 +102,10 @@ export default function PageTransition({
 }: Props) {
   const router = useRouter();
   const reduced = useReducedMotion() ?? false;
+  const main = useRef<HTMLElement>(null);
+  // The exit's opacity is a value rather than a plain variant key so it can be
+  // seeded from the screen before it animates; see `leave`.
+  const opacity = useMotionValue(1);
   const [exit, setExit] = useState<{
     href: string;
     direction: Direction;
@@ -115,11 +120,17 @@ export default function PageTransition({
       // Cheap and idempotent, and it covers a destination the screen did not
       // declare; the declared ones are already warm from mount.
       router.prefetch(href);
+      // A keypress can land while the CSS entrance is still running, and the
+      // next render takes that animation away — so carry over what is actually
+      // on screen at this instant. Motion otherwise starts the exit from the
+      // `1` it last wrote, which is a jump to full brightness first.
+      const live = main.current && getComputedStyle(main.current).opacity;
+      if (live && Number.isFinite(Number(live))) opacity.set(Number(live));
       // First call wins. A second key press during the exit must not restart
       // it or redirect it somewhere else.
       setExit(current => current ?? { href, direction });
     },
-    [router]
+    [router, opacity]
   );
 
   const target = exit
@@ -128,8 +139,10 @@ export default function PageTransition({
       : 'exitForward'
     : 'enter';
 
-  // Dropped once the exit starts: a CSS animation outranks motion's inline
-  // styles, so leaving it on would pin the page at its entrance's end state.
+  // Dropped once the exit starts: a *running* CSS animation outranks motion's
+  // inline styles, so an exit that interrupted the entrance would not show at
+  // all until the entrance's 240ms were up. Nothing is pinned after that —
+  // the animation fills backwards only.
   const classes = [exit ? null : 'page-enter', className]
     .filter(Boolean)
     .join(' ');
@@ -137,6 +150,8 @@ export default function PageTransition({
   return (
     <LeaveContext.Provider value={leave}>
       <motion.main
+        ref={main}
+        style={{ opacity }}
         className={classes}
         variants={reduced ? REDUCED_VARIANTS : VARIANTS}
         initial="enter"
