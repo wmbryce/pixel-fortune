@@ -255,6 +255,22 @@ describe('DialogBox', () => {
     expect(body()).not.toContain(WELCOME_MESSAGE.slice(0, 40));
   });
 
+  it('steps once when Enter is pressed on the focused button, not twice', async () => {
+    await dealHand();
+    await tick(3000);
+    await reveal();
+    expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
+
+    // The browser answers Enter on a focused button with a click of its own;
+    // the window listener must not answer it as well.
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'Enter' });
+      fireEvent.click(button()!);
+    });
+    await reveal();
+    expect(body()).toContain('paragraph one');
+  });
+
   it('deals one hand and buys one reading, however hard the key is pressed', async () => {
     const view = render(<Harness />);
     await tick(1200);

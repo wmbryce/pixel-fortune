@@ -121,10 +121,21 @@ export default function DialogBox({
   );
   const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
+  // "Press any key to continue", so this is on the window rather than on the
+  // control — but a focused button already answers Enter and Space with a
+  // click of its own, and answering both would step the dialog twice.
+  const anyKey = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLButtonElement) return;
+      press();
+    },
+    [press]
+  );
+
   useEffect(() => {
-    window.addEventListener('keydown', press);
-    return () => window.removeEventListener('keydown', press);
-  }, [press]);
+    window.addEventListener('keydown', anyKey);
+    return () => window.removeEventListener('keydown', anyKey);
+  }, [anyKey]);
 
   /**
    * The box slides up from below and grows once it has something to say. All
