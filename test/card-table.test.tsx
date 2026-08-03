@@ -14,7 +14,6 @@ import { CardType } from '@/types';
 const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
   id: i,
   image: `Tarot_0${i}.png`,
-  description: '',
   name: `Card ${i}`,
 }));
 

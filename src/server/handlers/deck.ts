@@ -10,9 +10,8 @@ const byId = new Map(TarotDeck.map((card) => [card.id, card]));
 
 /**
  * Rehydrates an ordered spread from card ids. Cached readings store ids rather
- * than card objects so a replay always renders against the current deck —
- * ticket #17 is still filling in the 78 descriptions, and a reading cached
- * today should show them once it lands. Returns null if any id is unknown.
+ * than card objects so a replay always renders against the current deck.
+ * Returns null if any id is unknown.
  */
 export const cardsByIds = (ids: number[]): CardType[] | null => {
   const cards = ids.map((id) => byId.get(id));

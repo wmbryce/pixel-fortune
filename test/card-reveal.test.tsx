@@ -15,7 +15,6 @@ const DATA: CardType = {
   id: 0,
   name: 'The Fool',
   image: 'Tarot_00_Fool.png',
-  description: '',
 };
 
 const flipper = () =>

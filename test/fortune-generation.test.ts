@@ -19,7 +19,7 @@ import { MAX_PROMPT_TOKENS } from '@/server/model';
 import { ceilingHits, resetCeilingHitsForTests } from '@/server/ceiling';
 
 const HAND: CardType[] = ['The Star', 'The Moon', 'The Sun', 'The Tower', 'The Fool'].map(
-  (name, id) => ({ id, name, image: `/${id}.png`, description: name })
+  (name, id) => ({ id, name, image: `/${id}.png` })
 );
 
 const completion = (content: string, finish_reason = 'stop') => ({

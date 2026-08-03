@@ -6,7 +6,7 @@
  * ground; it exists so that case is defined rather than a dead dialog.
  *
  * Written to name no cards, so it stays coherent against any spread on the
- * table and needs nothing from ticket #17's card descriptions.
+ * table.
  */
 export const COLD_START_READING = `The deck has been laid, but the spirits are keeping their counsel tonight. The cards before you are true — they were drawn for you, and they are yours — yet the voice that reads them has gone quiet for a while, the way an oracle falls silent when it has spoken too long without rest.
 
