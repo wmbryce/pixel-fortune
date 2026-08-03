@@ -5,7 +5,6 @@ export type FortuneType = {
 export type CardType = {
   id: number;
   image: string;
-  description: string;
   name: string;
 };
 

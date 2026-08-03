@@ -527,7 +527,7 @@ describe('cached mode', () => {
   it('rehydrates a cached spread from the current deck, not a stale snapshot', async () => {
     await cacheReading({
       handIds: [0, 1, 2, 3, 4],
-      reading: 'Cached before the descriptions landed.',
+      reading: 'Cached against an earlier deck.',
       model: 'test-model',
       createdAt: new Date().toISOString(),
     });

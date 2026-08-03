@@ -32,13 +32,11 @@ const DATA: CardType = {
   id: 0,
   name: 'The Fool',
   image: 'Tarot_00_Fool.png',
-  description: '',
 };
 
 const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
   id: i,
   image: `Tarot_0${i}.png`,
-  description: '',
   name: `Card ${i}`,
 }));
 
