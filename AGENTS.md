@@ -13,10 +13,10 @@ it — `openai` reads `OPENAI_BASE_URL`:
     MOCK_DELAY_MS=0 node test/mock-openai.mjs &
     OPENAI_API_KEY=sk-mock OPENAI_BASE_URL=http://localhost:3222/v1 npm run dev
 
-The delay is the lever for the DialogBox state machine: the reveal placeholder is
-scheduled 2200ms after the hand is dealt, so 0ms and 4000ms exercise opposite
-orderings of the reading vs that timer. `MOCK_MODE=long` and `MOCK_MODE=cutoff`
-cover the two reading-length paths.
+The delay is the lever for the DialogBox state machine: the reveal prompt fires
+on a fixed 2200ms beat after the hand is dealt (`REVEAL_BEAT_MS`), so 0ms and
+4000ms land the reading either side of that beat. `MOCK_MODE=long` and
+`MOCK_MODE=cutoff` cover the two reading-length paths.
 
 ## API budget: live until the cap, then cached
 
