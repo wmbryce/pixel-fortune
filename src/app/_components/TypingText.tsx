@@ -1,79 +1,90 @@
 'use client';
 
-import React, { useMemo, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+/** 30ms a character, the pace the reading has always been paced at. */
+const TYPING_MS = 30;
 
 type Props = {
   text: string;
+  /** Lead-in before the first character. */
   delay: number;
+  /** Put the whole of `text` on screen now. */
   skip: boolean;
-  setTypingComplete: any;
+  /** Called when all of `text` is on screen, however it got there. */
+  onDone: () => void;
 };
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 /**
- * Types out the whole of `text`, always.
+ * Types out the whole of `text`, always, and keeps its own box scrolled to the
+ * last line. Owns the scroll box so no ref crosses this seam — the dialog used
+ * to hand one in and read its `scrollHeight` during render.
  *
- * There used to be a 1000-character ceiling here, paired with a `startIndex`
- * that nothing ever advanced — the stub of a pagination scheme that was never
- * built. Past 1000 characters the loop simply stopped: the rest of the
- * paragraph was never typed, `setTypingComplete` never fired, so the Continue
- * button never appeared and the reading dead-ended unless the visitor happened
- * to press a key. Paging is the dialog box's job (it splits the reading on
- * blank lines); this component's only contract is that what it is handed is
- * what the visitor sees.
+ * One effect per page, not one per character: a single chain of timeouts that
+ * the cleanup cancels. The old version awaited a `sleep` inside an effect that
+ * re-ran on every index, and capped a page at 1000 characters against a
+ * `startIndex` nothing advanced — past that the loop simply stopped, completion
+ * never fired, and the Continue button never appeared. Paging is the dialog
+ * box's job; this component's only contract is that what it is handed is what
+ * the visitor sees.
  */
-export const TypingText = React.forwardRef(
-  ({ text, delay, skip, setTypingComplete }: Props, ref: any) => {
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [delayComplete, setDelayComplete] = useState<boolean>(false);
+export default function TypingText({ text, delay, skip, onDone }: Props) {
+  const [source, setSource] = useState(text);
+  const [count, setCount] = useState(0);
+  const scroller = useRef<HTMLDivElement>(null);
 
-    const typingInterval = 30;
-
-    useEffect(() => {
-      setCurrentIndex(0);
-      setTypingComplete(false);
-    }, [text]);
-
-    useEffect(() => {
-      const scrollToBottom = () => {
-        if (ref?.current) {
-          ref.current.scrollTop = ref.current.scrollHeight + 10;
-        }
-      };
-      const type = async () => {
-        if (skip) {
-          setCurrentIndex(text?.length);
-          setTypingComplete(true);
-          setDelayComplete(false);
-        } else if (delayComplete && text?.length > currentIndex) {
-          setTypingComplete(false);
-          await sleep(typingInterval);
-          setCurrentIndex(prev => prev + 1);
-          if (currentIndex + 1 === text?.length) {
-            setTypingComplete(true);
-            setDelayComplete(false);
-          }
-          scrollToBottom();
-        } else {
-          await sleep(delay);
-          setDelayComplete(true);
-        }
-      };
-      type();
-    }, [currentIndex, text, skip, delay, setTypingComplete, delayComplete]);
-
-    const displayText = useMemo(
-      () => text.substring(0, currentIndex),
-      [currentIndex, text]
-    );
-
-    return (
-      <p className={'inline-block font-pixel text-base pb-16'}>{displayText}</p>
-    );
+  // Adjusted during render rather than in an effect, so a new page never paints
+  // a frame of the previous page's progress measured against it.
+  if (source !== text) {
+    setSource(text);
+    setCount(0);
+  } else if (skip && count !== text.length) {
+    setCount(text.length);
   }
-);
 
-TypingText.displayName = 'TypingText';
+  useEffect(() => {
+    if (skip) return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const step = (n: number) => {
+      if (!live || n > text.length) return;
+      timer = setTimeout(
+        () => {
+          if (!live) return;
+          setCount(n);
+          step(n + 1);
+        },
+        n === 1 ? delay : TYPING_MS
+      );
+    };
+    step(1);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [text, delay, skip]);
 
-export default TypingText;
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [count]);
+
+  // Once per page, whatever `onDone`'s identity does between renders. Reporting
+  // on every render that happens to be complete is how a caller that passes an
+  // inline callback ends up in a render loop.
+  const reported = useRef<string | null>(null);
+  const done = count >= text.length;
+  useEffect(() => {
+    if (!done || reported.current === text) return;
+    reported.current = text;
+    onDone();
+  }, [done, text, onDone]);
+
+  return (
+    <div ref={scroller} className="flex px-8 pt-8 pb-16 overflow-y-auto">
+      <p className="inline-block font-pixel text-base pb-16">
+        {text.slice(0, count)}
+      </p>
+    </div>
+  );
+}

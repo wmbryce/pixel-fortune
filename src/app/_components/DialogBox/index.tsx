@@ -1,16 +1,6 @@
 'use client';
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  Dispatch,
-  SetStateAction,
-} from 'react';
-import { trpc } from '../../_trpc/client';
-import { DialogButton } from '../DialogButton';
-import { RESET_MESSAGE, WELCOME_MESSAGE, REVEAL_MESSAGE } from './data';
-import TypingText from '../TypingText';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
   AnimatePresence,
   animate,
@@ -18,186 +8,134 @@ import {
   useMotionValue,
   useReducedMotion,
 } from 'motion/react';
-import { CardType } from '@/types';
-import { cn } from '../../_libs/utils';
+import { trpc } from '../../_trpc/client';
+import { DialogButton } from '../DialogButton';
+import TypingText from '../TypingText';
 import { usePageLeave } from '../PageTransition';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
-
-type tableStateType = {
-  label: string;
-  body: string;
-  action: () => void;
-};
+import {
+  INITIAL,
+  REVEAL_BEAT_MS,
+  WAKE_MS,
+  dialogReducer,
+  leadIn,
+  pageOf,
+  splitReading,
+  type Scene,
+} from './machine';
 
 type Props = {
-  tarotHand: CardType[];
-  /** Opaque handle from the deal; the server resolves the reading from it. */
+  /**
+   * Empty until a hand is on the table. It is the deal's opaque handle — the
+   * server resolves the reading from it — and its arrival *is* the news that
+   * the cards have landed, so the box needs nothing else about them.
+   */
   readingToken: string;
   allRevealed: boolean;
-  fetchHand: boolean;
-  setFetchHand: Dispatch<SetStateAction<boolean>>;
-  resetData: () => void;
-  stateIndex: number;
-  setStateIndex: Dispatch<SetStateAction<number>>;
+  /** Deal a hand. Called once, when the visitor leaves the welcome page. */
+  onDraw: () => void;
+  /** Clear the table. Called once, as the reset navigates away. */
+  onReset: () => void;
 };
 
-function DialogBox({
-  tarotHand,
+/**
+ * The RPG dialog box. `machine.ts` owns where the visitor is and what may
+ * happen next; this file owns the clock, the network and the pixels, and every
+ * one of them talks to the machine by dispatching an event. Nothing else writes
+ * dialog state — that is the whole point of the rebuild.
+ */
+export default function DialogBox({
   readingToken,
   allRevealed,
-  fetchHand,
-  setFetchHand,
-  resetData,
-  stateIndex,
-  setStateIndex,
+  onDraw,
+  onReset,
 }: Props) {
-  const [skip, setSkip] = useState<boolean>(false);
-  const [typingComplete, setTypingComplete] = useState<boolean>(false);
-  const [errorText, setErrorText] = useState<null | string>(null);
-  // Counted rather than watched: pressing Continue again while still blocked
-  // sets the same string, and an effect on the text alone would not fire twice.
-  const [blocked, setBlocked] = useState(0);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-
+  const [state, dispatch] = useReducer(dialogReducer, INITIAL);
   const reduced = useReducedMotion() ?? false;
   const leave = usePageLeave();
   const shakeX = useMotionValue(0);
+
+  const { mutate: fetchFortune } = trpc.getFortune.useMutation({
+    onSettled: data =>
+      dispatch({ type: 'reading', passages: splitReading(data) }),
+  });
+
+  const { scene, refusal } = state;
+  const page = pageOf(scene);
+  const dealing = scene.name === 'dealing';
+
+  /**
+   * The one place the machine reaches outside itself, and it is one-way: scenes
+   * in, calls out. Guarded on the scene being entered rather than on the deps,
+   * so a re-render carrying a fresh `onDraw` or `leave` cannot deal a second
+   * hand or navigate twice.
+   */
+  const acted = useRef<Scene['name'] | null>(null);
+  useEffect(() => {
+    if (acted.current === scene.name) return;
+    acted.current = scene.name;
+    if (scene.name === 'dealing') onDraw();
+    if (scene.name === 'leaving') {
+      onReset();
+      // Back out the way we came in, and let the exit play before the route
+      // changes under it.
+      leave('/welcome', 'back');
+    }
+  }, [scene.name, onDraw, onReset, leave]);
+
+  useEffect(() => {
+    const t = setTimeout(() => dispatch({ type: 'wake' }), WAKE_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Exactly one generation per token, whatever React does with this effect —
+  // a reading is money, and a second call would reserve budget twice.
+  const requested = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dealing || !readingToken) return;
+    if (requested.current === readingToken) return;
+    requested.current = readingToken;
+    fetchFortune({ token: readingToken });
+  }, [dealing, readingToken, fetchFortune]);
+
+  // The box asks for the first card a beat after the hand lands, and only ever
+  // because of this beat: the reading may arrive before, during or after it.
+  useEffect(() => {
+    if (!dealing || !readingToken) return;
+    const t = setTimeout(() => dispatch({ type: 'prompt' }), REVEAL_BEAT_MS);
+    return () => clearTimeout(t);
+  }, [dealing, readingToken]);
 
   // Refusing to continue used to move nothing at all — the prose appeared and
   // that was the whole answer (audit, missed opportunity 3). Reduced motion
   // keeps the prose and skips the shake, which is pure vestibular noise.
   useEffect(() => {
-    if (!blocked || reduced) return;
+    if (!refusal || reduced) return;
     const controls = animate(shakeX, SHAKE.keyframes, SHAKE.transition);
     return () => controls.stop();
-  }, [blocked, reduced, shakeX]);
+  }, [refusal, reduced, shakeX]);
 
-  const {
-    mutate: fetchFortune,
-    isPending,
-  } = trpc.getFortune.useMutation({
-    onSettled: data => {
-      let textArray: string[] = [];
-      if (typeof data === 'string') {
-        textArray = data?.split(/\n\s*\n+/);
-      }
-      setDialogStates(generateTableStates(textArray));
-    },
-  });
-
-  const startState = [
-    {
-      label: 'Draw Hand',
-      body: WELCOME_MESSAGE,
-      action: () => {
-        setFetchHand(true);
-        setDialogStates([]);
-      },
-    },
-  ];
-  const reveal = {
-    label: 'Continue',
-    body: REVEAL_MESSAGE,
-    action: () => {
-      setStateIndex(1);
-    },
-  };
-
-  const [dialogStates, setDialogStates] = useState<tableStateType[]>([]);
+  const press = useCallback(
+    () => dispatch({ type: 'advance', allRevealed }),
+    [allRevealed]
+  );
+  const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
   useEffect(() => {
-    setTimeout(() => {
-      setDialogStates(startState);
-    }, 1000);
-  }, []);
-
-  const generateTableStates = (textArray: string[]): tableStateType[] => {
-    const mid = textArray.map((text, index) => {
-      return {
-        label: 'Continue',
-        body: text,
-        action: () => {
-          setStateIndex(index + 2);
-        },
-      };
-    });
-    const tail = [
-      {
-        label: 'Complete',
-        body: RESET_MESSAGE,
-        action: () => {
-          setDialogStates(startState);
-          setStateIndex(0);
-          resetData();
-          // Back out the way we came in, and let the transition play before the
-          // route changes under it.
-          leave('/welcome', 'back');
-        },
-      },
-    ];
-
-    return [reveal, ...mid, ...tail];
-  };
-
-  useEffect(() => {
-    if (tarotHand.length === 5) {
-      fetchFortune({ token: readingToken });
-      setFetchHand(false);
-      // The fortune can settle before this fires; the placeholder must never
-      // clobber a reading that has already arrived.
-      const revealTimer = setTimeout(() => {
-        setDialogStates(prev => (prev.length > 0 ? prev : [reveal]));
-      }, 2200);
-      return () => clearTimeout(revealTimer);
-    }
-  }, [tarotHand]);
-
-  useEffect(() => {
-    const dialogButton = document.getElementById('dialogButton');
-    const nextKeyPress = () => {
-      if (!isPending) {
-        if (!skip && !typingComplete) {
-          setSkip(true);
-          setErrorText(null);
-        } else {
-          if (!allRevealed && tarotHand.length === 5) {
-            setErrorText(
-              'You must reveal all the cards before you can continue!'
-            );
-            setBlocked(n => n + 1);
-          } else {
-            dialogStates?.[stateIndex]?.action();
-            setSkip(false);
-            setErrorText(null);
-          }
-        }
-      }
-    };
-    window.addEventListener('keydown', nextKeyPress);
-    dialogButton?.addEventListener('click', nextKeyPress);
-    return () => {
-      window.removeEventListener('keydown', nextKeyPress);
-      dialogButton?.removeEventListener('click', nextKeyPress);
-    };
-  }, [stateIndex, skip, dialogStates, typingComplete, isPending, allRevealed]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [scrollRef?.current?.scrollHeight]);
+    window.addEventListener('keydown', press);
+    return () => window.removeEventListener('keydown', press);
+  }, [press]);
 
   /**
    * The box slides up from below and grows once it has something to say. All
    * three of these used to be `{ duration: 1, type: 'spring' }` — a real 1000ms
    * each, measured (audit finding #3) — and now come from the tokens.
    *
-   * `height` is still on the timeline, so this still costs layout every frame.
-   * The strip it grows inside is reserved (`tarot/page.tsx`), so nothing else
-   * on the page moves with it, but the swap to a transform belongs with the
-   * rebuild in #16 rather than here: the 8px pixel border and the typewriter's
-   * scroll box both distort under a `scaleY`.
+   * `height` stays on the timeline rather than becoming a `scaleY`, which was
+   * left open by #15 and is settled here: the 8px pixel border and the
+   * typewriter's scroll box both distort under a scale, and the strip the box
+   * grows inside is reserved (`tarot/page.tsx`), so the layout it costs is its
+   * own and moves nothing else on the page.
    *
    * Reduced motion drops the 200% travel and cross-fades the box in on the
    * spot; the height still changes, because that is the box telling you it now
@@ -228,30 +166,30 @@ function DialogBox({
   return (
     <motion.div
       style={{ x: shakeX }}
-      className={cn(
-        'relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]'
-      )}
+      className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
     >
       <motion.div
         className="flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
         variants={dialogVariants}
         initial="hidden"
-        animate={dialogStates?.length === 0 ? 'loading' : 'visible'}
+        animate={page ? 'visible' : 'loading'}
       >
-        <div ref={scrollRef} className="flex px-8 pt-8 pb-16 overflow-y-auto">
+        {page && (
+          // Keyed on the page, so "a new page starts from the beginning" holds
+          // even for two paragraphs that happen to read the same.
           <TypingText
-            ref={scrollRef}
-            text={dialogStates?.[stateIndex]?.body ?? ''}
-            delay={stateIndex === 0 || stateIndex === 1 ? 1600 : 200}
-            skip={skip}
-            setTypingComplete={setTypingComplete}
+            key={page.key}
+            text={page.body}
+            delay={leadIn(scene)}
+            skip={state.typed}
+            onDone={typed}
           />
-        </div>
+        )}
         {/* The one `AnimatePresence` in here with a child that actually comes
             and goes. The two that wrapped permanently-mounted elements, and the
             `layoutId` with nothing to travel between, are gone (finding #11). */}
         <AnimatePresence>
-          {(skip || typingComplete) && (
+          {page && state.typed && (
             <motion.div
               // Was `{ duration: 2, type: 'spring' }` — a real 2000ms settle on
               // the app's primary control (finding #9).
@@ -261,11 +199,17 @@ function DialogBox({
               className="flex flex-row items-center border-t-[2px] border-brown_01 justify-end bg-[#FFFFFF00] p-2 text-brown_02 font-sans"
               transition={reduced ? CROSSFADE : SPRING.snap}
             >
-              {!!errorText && (
-                <p className="font-sans mr-4 text-brown_03">{errorText}</p>
+              {refusal && (
+                <p className="font-sans mr-4 text-brown_03">{refusal.message}</p>
               )}
-              <DialogButton id={'dialogButton'} loading={isPending}>
-                {dialogStates?.[stateIndex]?.label}
+              <DialogButton
+                id="dialogButton"
+                onClick={press}
+                loading={
+                  scene.name === 'reveal' && state.reading.status !== 'ready'
+                }
+              >
+                {page.label}
               </DialogButton>
             </motion.div>
           )}
@@ -274,5 +218,3 @@ function DialogBox({
     </motion.div>
   );
 }
-
-export default DialogBox;

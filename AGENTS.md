@@ -90,11 +90,40 @@ separated, plain prose, no markdown — as much as the voice. Loosening it pages
 literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
 that takes minutes to type.
 
-`TypingText` types out whatever it is handed, in full, always; paging is the
-dialog box's job. It used to cap each page at 1000 characters against a
-`startIndex` nothing advanced, which stalled the typewriter mid-paragraph with
-no Continue button. Regression tests: `test/typing-text.test.tsx` and the long
-page case in `test/dialog-box-race.test.tsx`.
+`TypingText` types out whatever it is handed, in full, always, and owns its own
+scroll box; paging is the dialog box's job. It used to cap each page at 1000
+characters against a `startIndex` nothing advanced, which stalled the typewriter
+mid-paragraph with no Continue button. Regression tests:
+`test/typing-text.test.tsx` and the long page case in
+`test/dialog-box-race.test.tsx`.
+
+## The dialog box is a state machine, and that is the whole design
+
+`src/app/_components/DialogBox/machine.ts` is pure — no React, no timers, no DOM
+— and `index.tsx` owns the clock, the network and the pixels, each of which
+talks to it only by dispatching an event. Nothing else writes dialog state.
+Three bugs came out of the shape this replaced (a `stateIndex` into a
+`dialogStates` array that the mutation's `onSettled` rewrote mid-flight): a fast
+reading overwritten by the 2200ms placeholder timer, a typewriter that stopped
+without reporting completion, and a reset that misbehaved under machine-fast
+keypresses. Three properties make them unrepresentable, and undoing any one
+brings its bug back:
+
+- **A reading arriving is not a move.** `reading` fills a slot no `Scene` lives
+  in, so no arrival — early, late or never — can touch where the visitor stands.
+  The reveal prompt comes from the beat and from nothing else.
+- **A `Scene` carries its own text.** `passage` holds the paragraph, not an
+  index into an array someone else owns, so no cursor can dangle.
+- **`leaving` accepts nothing.** The reset is terminal, so the keypress burst
+  during the page exit has nowhere to go, and the box holds the frame it was
+  pressed on rather than blanking under the fade.
+
+`test/dialog-machine.test.ts` states all three at the seam;
+`test/dialog-box-race.test.tsx` walks the same journeys through React. The box
+animates `height` rather than `scaleY` on purpose: the 8px pixel border and the
+typewriter's scroll box both distort under a scale, and the strip it grows
+inside is reserved, so that layout costs nothing else on the page. Decided in
+#16.
 
 ## The card reveal is a flip, so both faces are always mounted
 
