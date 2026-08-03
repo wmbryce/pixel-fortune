@@ -271,6 +271,24 @@ describe('DialogBox', () => {
     expect(body()).toContain('paragraph one');
   });
 
+  it('still answers an ordinary key while the button holds focus', async () => {
+    await dealHand();
+    await tick(3000);
+    await reveal();
+    expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
+
+    // The other failure of the same guard: only Enter and Space become a click
+    // of the button's own, so every other key must still step the dialog —
+    // once — rather than dying because the button happens to hold focus.
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'x' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'x' });
+    });
+    expect(body()).toContain('paragraph one');
+  });
+
   it('deals one hand and buys one reading, however hard the key is pressed', async () => {
     const view = render(<Harness />);
     await tick(1200);
