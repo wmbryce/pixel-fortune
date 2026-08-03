@@ -244,6 +244,14 @@ clean. Don't bump to `latest`.
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
 Component specs mock `src/app/_trpc/client` rather than standing up tRPC.
 
+## Formatting is enforced, and prettier is pinned
+
+`npm run lint` runs `prettier --check .` before eslint, so a formatting drift
+fails lint. `prettier` is pinned exactly (no caret) — a floating formatter
+reformats the repo differently on the next machine, which is worse than none.
+`npm run format` fixes. Keep any reformat in its own commit; mixed with real
+changes it is unreviewable.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
