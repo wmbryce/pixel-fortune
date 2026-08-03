@@ -3,8 +3,13 @@
  *
  * TypingText capped each page at `maxCharacters = 1000` against a `startIndex`
  * nothing advanced, so a long paragraph stopped typing at 1000 characters,
- * `setTypingComplete` never fired, and the Continue button never appeared —
- * the visitor got less than was written, with nothing to say so.
+ * completion never fired, and the Continue button never appeared — the visitor
+ * got less than was written, with nothing to say so.
+ *
+ * The ceiling is gone and the loop is one chain of timeouts per page rather
+ * than an effect per character, so there is no longer a place for a page to
+ * stop in. These pin the contract that replaced it: everything handed in is
+ * typed, and completion is reported exactly once per page.
  */
 import React, { useState } from 'react';
 import { render, act } from '@testing-library/react';
@@ -18,16 +23,21 @@ const LONG_PAGE = Array.from(
 ).join(' ');
 
 function Harness({ text, skip = false }: { text: string; skip?: boolean }) {
-  const [complete, setComplete] = useState(false);
+  const [done, setDone] = useState(0);
   return (
     <>
-      <TypingText text={text} delay={0} skip={skip} setTypingComplete={setComplete} />
-      <span data-testid="complete">{String(complete)}</span>
+      <TypingText
+        text={text}
+        delay={0}
+        skip={skip}
+        onDone={() => setDone(n => n + 1)}
+      />
+      <span data-testid="done">{String(done)}</span>
     </>
   );
 }
 
-/** Slices so the typewriter's chained promise/timer pairs get a chance to run. */
+/** Slices so the typewriter's chained timeouts get a chance to run. */
 const runTimers = async (ms: number, slice = 30) => {
   for (let t = 0; t < ms; t += slice) {
     await act(async () => {
@@ -37,8 +47,7 @@ const runTimers = async (ms: number, slice = 30) => {
 };
 
 const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
-const complete = () =>
-  document.querySelector('[data-testid="complete"]')?.textContent;
+const done = () => document.querySelector('[data-testid="done"]')?.textContent;
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -52,7 +61,7 @@ describe('TypingText', () => {
     await runTimers(LONG_PAGE.length * 30 + 500);
 
     expect(body()).toBe(LONG_PAGE);
-    expect(complete()).toBe('true');
+    expect(done()).toBe('1');
   });
 
   it('reveals a long page in full when the visitor skips', async () => {
@@ -60,7 +69,7 @@ describe('TypingText', () => {
     await runTimers(100);
 
     expect(body()).toBe(LONG_PAGE);
-    expect(complete()).toBe('true');
+    expect(done()).toBe('1');
   });
 
   it('starts each new page from the beginning', async () => {
@@ -68,10 +77,21 @@ describe('TypingText', () => {
     await runTimers(LONG_PAGE.length * 30 + 500);
 
     const next = `${LONG_PAGE} And a second page, also long.`;
-    view.rerender(<Harness text={next} />);
-    await runTimers(next.length * 30 + 500);
+    view.rerender(<Harness text={next} skip={false} />);
+    // A page that starts where the last one stopped would already read as
+    // complete here; it has to type the tail out.
+    expect(body()).toBe('');
 
+    await runTimers(next.length * 30 + 500);
     expect(body()).toBe(next);
-    expect(complete()).toBe('true');
+    expect(done()).toBe('2');
+  });
+
+  it('reports completion once, not once a frame', async () => {
+    render(<Harness text="Short." />);
+    await runTimers(1000);
+
+    expect(body()).toBe('Short.');
+    expect(done()).toBe('1');
   });
 });

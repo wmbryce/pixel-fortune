@@ -1,7 +1,7 @@
 // Mock OpenAI chat-completions endpoint for testing the fortune path without a key.
 // Point the app at it with OPENAI_BASE_URL=http://localhost:3222/v1 (openai-node reads that env var).
 //
-//   MOCK_DELAY_MS=0    node test/mock-openai.mjs   # fast return — exercises the DialogBox race
+//   MOCK_DELAY_MS=0    node test/mock-openai.mjs   # reading lands before the 2200ms reveal beat
 //   MOCK_DELAY_MS=4000 node test/mock-openai.mjs   # realistic OpenAI latency
 //   MOCK_MODE=error    node test/mock-openai.mjs   # 500, exercises the mutation error path
 //   MOCK_MODE=long     node test/mock-openai.mjs   # paragraphs past 1000 chars, exercises TypingText

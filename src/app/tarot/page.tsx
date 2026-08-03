@@ -1,15 +1,19 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import CardTable from '../_components/CardTable';
 import DialogBox from '../_components/DialogBox';
 import { trpc } from '../_trpc/client';
 import { CardType } from '@/types';
 
+/** The box arrives after the table, so the two do not slide in on top of each other. */
+const DIALOG_ENTRANCE_MS = 2000;
+
+/** Stable identity: `CardTable` resets its deal whenever the hand it holds changes. */
+const NO_HAND: CardType[] = [];
+
 export default function Home() {
-  const [fetchHand, setFetchHand] = useState<boolean>(false);
   const [showDialogBox, setShowDialogBox] = useState<boolean>(false);
-  const [stateIndex, setStateIndex] = useState<number>(0);
-  const [tarotHand, setTarotHand] = useState<CardType[]>([]);
+  const [tarotHand, setTarotHand] = useState<CardType[]>(NO_HAND);
   const [readingToken, setReadingToken] = useState<string>('');
   const [allRevealed, setAllRevealed] = useState<boolean>(false);
 
@@ -23,23 +27,18 @@ export default function Home() {
     },
   });
 
+  // Was an effect with no dependency array, opening a fresh timer on every
+  // render for the whole life of the page.
   useEffect(() => {
-    if (fetchHand) {
-      setFetchHand(false);
-      deal();
-    }
-  }, [fetchHand, deal]);
+    const t = setTimeout(() => setShowDialogBox(true), DIALOG_ENTRANCE_MS);
+    return () => clearTimeout(t);
+  }, []);
 
-  const resetData = () => {
-    setTarotHand([]);
+  const draw = useCallback(() => deal(), [deal]);
+  const reset = useCallback(() => {
+    setTarotHand(NO_HAND);
     setReadingToken('');
-  };
-
-  useEffect(() => {
-    setTimeout(() => {
-      setShowDialogBox(true);
-    }, 2000);
-  });
+  }, []);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -53,13 +52,9 @@ export default function Home() {
         {showDialogBox && (
           <DialogBox
             allRevealed={allRevealed}
-            tarotHand={tarotHand}
             readingToken={readingToken}
-            fetchHand={fetchHand}
-            setFetchHand={setFetchHand}
-            stateIndex={stateIndex}
-            setStateIndex={setStateIndex}
-            resetData={resetData}
+            onDraw={draw}
+            onReset={reset}
           />
         )}
       </div>

@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode } from 'react';
 
 type Props = {
-  id: string;
-  onClick?: any;
+  id?: string;
+  onClick?: () => void;
   children: ReactNode;
   loading: boolean;
   disabled?: boolean;
@@ -21,6 +21,6 @@ export const DialogButton = ({
     onClick={onClick}
     disabled={disabled}
   >
-    {loading ? "loading" : children}
+    {loading ? 'loading' : children}
   </button>
 );

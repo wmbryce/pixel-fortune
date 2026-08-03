@@ -1,19 +1,23 @@
 /**
- * Regression: the reading dead-ended when the fortune returned in under 2.2s.
- * DialogBox schedules a REVEAL_MESSAGE placeholder 2200ms after the hand is
- * dealt, in the same effect that fires the mutation. If the mutation settled
- * first, that timer overwrote the whole reading with a one-element array and
- * the dialog rendered empty with an unlabeled button, unrecoverable.
+ * The dialog driven end to end through React, against the three bugs that came
+ * out of the old `stateIndex`-into-a-rewritten-array shape.
+ *
+ * The reading arriving early used to overwrite the whole array from a 2200ms
+ * placeholder timer, dead-ending the visitor with an unlabelled button. The
+ * machine (`DialogBox/machine.ts`) cannot express that any more — an arrival
+ * fills a slot the scene never lives in — and `test/dialog-machine.test.ts`
+ * pins that at the seam. These are the same journeys walked through the
+ * component, so the wiring is covered too.
  *
  * Mirrors the browser reproduction (test/mock-openai.mjs at MOCK_DELAY_MS=0).
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CardType } from '@/types';
 import {
   REVEAL_MESSAGE,
   RESET_MESSAGE,
+  WELCOME_MESSAGE,
 } from '@/app/_components/DialogBox/data';
 
 const READING = [
@@ -24,52 +28,42 @@ const READING = [
 
 let fortuneDelayMs = 0;
 let fortuneResult: string | undefined = READING;
+let fortuneCalls = 0;
 
 vi.mock('../src/app/_trpc/client', () => ({
   trpc: {
     getFortune: {
-      useMutation: (opts: { onSettled: (data: unknown) => void }) => {
-        const [isPending, setIsPending] = useState(false);
-        return {
-          isPending,
-          mutate: () => {
-            setIsPending(true);
-            setTimeout(() => {
-              setIsPending(false);
-              opts.onSettled(fortuneResult);
-            }, fortuneDelayMs);
-          },
-        };
-      },
+      useMutation: (opts: { onSettled: (data: unknown) => void }) => ({
+        mutate: () => {
+          fortuneCalls += 1;
+          setTimeout(() => opts.onSettled(fortuneResult), fortuneDelayMs);
+        },
+      }),
     },
   },
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
 }));
 
 import DialogBox from '@/app/_components/DialogBox';
 
-const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
-  id: i,
-  image: `/card-${i}.png`,
-  description: `card ${i}`,
-  name: `Card ${i}`,
-}));
+let drawn = 0;
+let resets = 0;
 
-function Harness({ tarotHand }: { tarotHand: CardType[] }) {
-  const [stateIndex, setStateIndex] = useState(0);
+/** Stands in for `tarot/page.tsx`: a draw eventually answers with a token. */
+function Harness({ token = '' }: { token?: string }) {
   return (
     <DialogBox
-      tarotHand={tarotHand}
-      readingToken="test-token"
+      readingToken={token}
       allRevealed
-      fetchHand={false}
-      setFetchHand={() => {}}
-      resetData={() => {}}
-      stateIndex={stateIndex}
-      setStateIndex={setStateIndex}
+      onDraw={() => {
+        drawn += 1;
+      }}
+      onReset={() => {
+        resets += 1;
+      }}
     />
   );
 }
@@ -80,7 +74,7 @@ const tick = async (ms: number) => {
   });
 };
 
-/** Slices so the typewriter's chained promise/timer pairs get a chance to run. */
+/** Slices so the typewriter's chained timeouts get a chance to run. */
 const runTimers = async (ms: number, slice = 30) => {
   for (let t = 0; t < ms; t += slice) await tick(slice);
 };
@@ -93,37 +87,41 @@ const press = async () => {
 
 /** First press skips the typewriter so the body renders in full. */
 const reveal = press;
-/** Second press runs the current state's action. */
+/** Second press runs the current scene's transition. */
 const confirm = press;
 
-const body = () =>
-  document.querySelector('p.font-pixel')?.textContent ?? '';
-const label = () => document.getElementById('dialogButton')?.textContent ?? '';
+const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
+const button = () => document.getElementById('dialogButton');
+const label = () => button()?.textContent ?? '';
 
-/** Mount, wait out the start state, press Draw Hand, then deal the hand. */
+/** Mount, wait out the opening beat, press Draw Hand, then land the hand. */
 const dealHand = async () => {
-  const view = render(<Harness tarotHand={[]} />);
+  const view = render(<Harness />);
   await tick(1200);
   await reveal();
   await confirm();
-  view.rerender(<Harness tarotHand={HAND} />);
+  view.rerender(<Harness token="test-token" />);
   await tick(0);
+  return view;
 };
 
 beforeEach(() => {
   vi.useFakeTimers();
   fortuneDelayMs = 0;
   fortuneResult = READING;
+  fortuneCalls = 0;
+  drawn = 0;
+  resets = 0;
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('DialogBox fortune race', () => {
-  it('keeps a reading that arrives before the 2200ms reveal timer', async () => {
+describe('DialogBox', () => {
+  it('keeps a reading that arrives before the 2200ms reveal beat', async () => {
     await dealHand();
-    await tick(3000); // reading lands at 0ms, reveal timer fires at 2200ms
+    await tick(3000); // reading lands at 0ms, the beat fires at 2200ms
 
     await reveal();
     expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
@@ -147,11 +145,12 @@ describe('DialogBox fortune race', () => {
     expect(label()).toBe('Complete');
   });
 
-  it('shows the reveal placeholder while a slow reading is in flight', async () => {
+  it('shows the reveal prompt while a slow reading is in flight', async () => {
     fortuneDelayMs = 4000;
     await dealHand();
 
-    // Placeholder lands at 2200ms and types out while the fortune is in flight.
+    // The prompt lands on the beat and types out while the fortune is in
+    // flight; the control reads as busy until the reading is actually there.
     await runTimers(3900);
     expect(body().length).toBeGreaterThan(0);
     expect(REVEAL_MESSAGE.startsWith(body())).toBe(true);
@@ -178,6 +177,27 @@ describe('DialogBox fortune race', () => {
     expect(label()).toBe('Complete');
   });
 
+  it('holds at the reveal prompt rather than paging past a reading that has not arrived', async () => {
+    fortuneDelayMs = 60_000;
+    await dealHand();
+    await runTimers(2400);
+
+    await reveal();
+    expect(label()).toBe('loading');
+
+    // Every press here used to walk `stateIndex` off the end of a one-element
+    // array: an empty box with an unlabelled button and no way back.
+    for (let i = 0; i < 5; i++) await confirm();
+    expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
+    expect(label()).toBe('loading');
+
+    await tick(60_000);
+    expect(label()).toBe('Continue');
+    await confirm();
+    await reveal();
+    expect(body()).toContain('paragraph one');
+  });
+
   it('pages a paragraph past the old 1000-character ceiling in full', async () => {
     const long = Array.from(
       { length: 30 },
@@ -202,7 +222,7 @@ describe('DialogBox fortune race', () => {
     expect(body()).toContain('Second paragraph.');
   });
 
-  it('still reaches the reset state when the fortune errors immediately', async () => {
+  it('still reaches the reset scene when the fortune errors immediately', async () => {
     fortuneResult = undefined;
     await dealHand();
     await tick(3000);
@@ -214,5 +234,73 @@ describe('DialogBox fortune race', () => {
     await reveal();
     expect(body()).toContain(RESET_MESSAGE.slice(0, 40));
     expect(label()).toBe('Complete');
+  });
+
+  it('survives a burst of keypresses through the reset', async () => {
+    await dealHand();
+    await tick(3000);
+
+    // Machine-fast: no render between them, which is the shape that was
+    // reported as an unreproducible reset failure during #15.
+    await act(async () => {
+      for (let i = 0; i < 40; i++) fireEvent.keyDown(window, { key: 'Enter' });
+    });
+    await runTimers(600);
+
+    expect(resets).toBe(1);
+    // The farewell stays on screen through the exit rather than blanking, and
+    // nothing walks past it.
+    expect(RESET_MESSAGE.startsWith(body())).toBe(true);
+    expect(label()).toBe('Complete');
+    expect(body()).not.toContain(WELCOME_MESSAGE.slice(0, 40));
+  });
+
+  it('steps once when Enter is pressed on the focused button, not twice', async () => {
+    await dealHand();
+    await tick(3000);
+    await reveal();
+    expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
+
+    // The browser answers Enter on a focused button with a click of its own;
+    // the window listener must not answer it as well.
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'Enter' });
+      fireEvent.click(button()!);
+    });
+    await reveal();
+    expect(body()).toContain('paragraph one');
+  });
+
+  it('still answers an ordinary key while the button holds focus', async () => {
+    await dealHand();
+    await tick(3000);
+    await reveal();
+    expect(body()).toContain(REVEAL_MESSAGE.slice(0, 40));
+
+    // The other failure of the same guard: only Enter and Space become a click
+    // of the button's own, so every other key must still step the dialog —
+    // once — rather than dying because the button happens to hold focus.
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'x' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(button()!, { key: 'x' });
+    });
+    expect(body()).toContain('paragraph one');
+  });
+
+  it('deals one hand and buys one reading, however hard the key is pressed', async () => {
+    const view = render(<Harness />);
+    await tick(1200);
+    await act(async () => {
+      for (let i = 0; i < 20; i++) fireEvent.keyDown(window, { key: 'Enter' });
+    });
+    expect(drawn).toBe(1);
+
+    view.rerender(<Harness token="test-token" />);
+    await tick(0);
+    view.rerender(<Harness token="test-token" />);
+    await tick(3000);
+    expect(fortuneCalls).toBe(1);
   });
 });
