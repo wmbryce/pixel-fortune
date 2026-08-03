@@ -90,6 +90,11 @@ separated, plain prose, no markdown — as much as the voice. Loosening it pages
 literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
 that takes minutes to type.
 
+A card is `id`/`name`/`image` and nothing else. #17 removed the empty
+`description` field rather than filling it: card text in the prompt breaks the
+400-token prompt ceiling the per-reading reservation is derived from. Adding
+per-card prose back needs a consumer and a budget answer first.
+
 `TypingText` types out whatever it is handed, in full, always, and owns its own
 scroll box; paging is the dialog box's job. It used to cap each page at 1000
 characters against a `startIndex` nothing advanced, which stalled the typewriter
