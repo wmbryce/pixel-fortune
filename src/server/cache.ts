@@ -25,8 +25,8 @@ const CACHE_KEY = 'pf:readings';
  *
  * The spread is stored as card ids, not card objects — position is the array
  * index, and the rest of each card is rehydrated from the deck on the way out
- * so a replay renders against the current deck rather than a
- * snapshot taken when it was written.
+ * so a replay renders against the current deck rather than a snapshot taken
+ * when it was written.
  */
 export type CachedReading = {
   /** Ordered — index is the position on the table. */
