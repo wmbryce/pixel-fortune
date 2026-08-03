@@ -135,7 +135,11 @@ describe('advancing', () => {
   });
 
   it('refuses, visibly, until every card is turned over', () => {
-    const blocked = run(dealt, { type: 'reading', passages: PASSAGES }, ...page(false));
+    const blocked = run(
+      dealt,
+      { type: 'reading', passages: PASSAGES },
+      ...page(false)
+    );
     expect(blocked.scene.name).toBe('reveal');
     expect(blocked.refusal?.message).toBe(BLOCKED_MESSAGE);
 
@@ -145,8 +149,14 @@ describe('advancing', () => {
   });
 
   it('clears the refusal once the press lands', () => {
-    const blocked = run(dealt, { type: 'reading', passages: PASSAGES }, ...page(false));
-    expect(reduce(blocked, { type: 'advance', allRevealed: true }).refusal).toBeNull();
+    const blocked = run(
+      dealt,
+      { type: 'reading', passages: PASSAGES },
+      ...page(false)
+    );
+    expect(
+      reduce(blocked, { type: 'advance', allRevealed: true }).refusal
+    ).toBeNull();
   });
 
   it('ignores presses while there is nothing on screen', () => {
@@ -160,9 +170,9 @@ describe('advancing', () => {
     const first = reduce(woken, { type: 'advance', allRevealed: true });
     expect(first.scene).toBe(woken.scene);
     expect(first.typed).toBe(true);
-    expect(reduce(first, { type: 'advance', allRevealed: true }).scene.name).toBe(
-      'dealing'
-    );
+    expect(
+      reduce(first, { type: 'advance', allRevealed: true }).scene.name
+    ).toBe('dealing');
   });
 
   it('starts every new page untyped', () => {
@@ -204,9 +214,7 @@ describe('the reset', () => {
 
   it('holds the frame it was pressed on rather than blanking under the exit', () => {
     expect(leaving.typed).toBe(true);
-    expect(pageOf(leaving.scene)?.key).toBe(
-      pageOf({ name: 'farewell' })?.key
-    );
+    expect(pageOf(leaving.scene)?.key).toBe(pageOf({ name: 'farewell' })?.key);
   });
 });
 

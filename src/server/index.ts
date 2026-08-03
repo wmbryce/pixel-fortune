@@ -1,6 +1,6 @@
-import { publicProcedure, router } from "./trpc";
-import { dealHand, resolveReading } from "./handlers/reading";
-import { z } from "zod";
+import { publicProcedure, router } from './trpc';
+import { dealHand, resolveReading } from './handlers/reading';
+import { z } from 'zod';
 
 export const appRouter = router({
   /**

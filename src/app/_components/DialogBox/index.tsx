@@ -161,7 +161,12 @@ export default function DialogBox({
     ? ({
         hidden: { y: '0%', opacity: 0, height: '64px' },
         loading: { y: '0%', opacity: 1, height: '64px', transition: CROSSFADE },
-        visible: { y: '0%', opacity: 1, height: '256px', transition: CROSSFADE },
+        visible: {
+          y: '0%',
+          opacity: 1,
+          height: '256px',
+          transition: CROSSFADE,
+        },
       } as const)
     : ({
         hidden: { y: '200%', opacity: 1, height: '64px' },
@@ -216,7 +221,9 @@ export default function DialogBox({
               transition={reduced ? CROSSFADE : SPRING.snap}
             >
               {refusal && (
-                <p className="font-sans mr-4 text-brown_03">{refusal.message}</p>
+                <p className="font-sans mr-4 text-brown_03">
+                  {refusal.message}
+                </p>
               )}
               <DialogButton
                 id="dialogButton"

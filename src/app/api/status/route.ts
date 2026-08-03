@@ -21,8 +21,7 @@ export const dynamic = 'force-dynamic';
 /** How long a swallowed failure keeps the site reported as degraded. */
 const DEGRADED_WINDOW_MS = 5 * 60 * 1000;
 
-const usd = (micros: number) =>
-  Number((micros / MICROS_PER_USD).toFixed(6));
+const usd = (micros: number) => Number((micros / MICROS_PER_USD).toFixed(6));
 
 export async function GET() {
   const [budget, cached] = await Promise.all([
@@ -43,11 +42,12 @@ export async function GET() {
     Date.now() - Date.parse(failures.last.at) < DEGRADED_WINDOW_MS;
   const reachable = budget !== null && cached !== null;
 
-  const mode = !reachable || failedRecently
-    ? 'degraded'
-    : budget.capReached
-      ? 'cached'
-      : 'live';
+  const mode =
+    !reachable || failedRecently
+      ? 'degraded'
+      : budget.capReached
+        ? 'cached'
+        : 'live';
 
   return Response.json({
     mode,

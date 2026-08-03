@@ -55,7 +55,9 @@ const draw = async (who = visitor('v1')) => {
 };
 
 type StoreMethod = {
-  [K in keyof Store]: Store[K] extends (...args: never[]) => unknown ? K : never;
+  [K in keyof Store]: Store[K] extends (...args: never[]) => unknown
+    ? K
+    : never;
 }[keyof Store];
 
 /** Makes one store operation throw, the way a Redis outage would. */
@@ -160,7 +162,9 @@ describe('spend cap', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-31T23:59:00Z'));
     await dealHand(visitor('boundary'));
-    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(PER_READING_MICROS);
+    expect(Number(await getStore().get('pf:spend:2026-07'))).toBe(
+      PER_READING_MICROS
+    );
 
     // The hold outlives midnight UTC on the 1st. Refunding at sweep time would
     // credit August, pushing its counter negative and raising its cap.
@@ -299,8 +303,12 @@ describe('concurrent holds', () => {
       `pf:holds:id:${visitorIdentity(burst)}`
     );
     expect(outstanding).toBeLessThanOrEqual(2);
-    expect((await budgetStatus()).spentMicros).toBeLessThanOrEqual(2 * PER_READING_MICROS);
-    expect((await budgetStatus()).spentMicros).toBe(outstanding * PER_READING_MICROS);
+    expect((await budgetStatus()).spentMicros).toBeLessThanOrEqual(
+      2 * PER_READING_MICROS
+    );
+    expect((await budgetStatus()).spentMicros).toBe(
+      outstanding * PER_READING_MICROS
+    );
   });
 
   it('demotes a burst to a coherent cached reading, never an error', async () => {
@@ -318,7 +326,9 @@ describe('concurrent holds', () => {
     );
 
     for (const text of readings) expect(text.length).toBeGreaterThan(0);
-    expect(readings.filter(text => text === seed.reading).length).toBeGreaterThan(0);
+    expect(
+      readings.filter(text => text === seed.reading).length
+    ).toBeGreaterThan(0);
     expect(dealt.every(hand => hand.hand.length === 5)).toBe(true);
   });
 
@@ -609,7 +619,8 @@ describe('rate limit', () => {
     vi.stubEnv('PF_RATE_VISITOR', '10');
     vi.stubEnv('PF_RATE_IP', '2');
 
-    for (let i = 0; i < 6; i++) await draw(visitor(`fresh-${i}`, '198.51.100.8'));
+    for (let i = 0; i < 6; i++)
+      await draw(visitor(`fresh-${i}`, '198.51.100.8'));
 
     expect(calls).toBe(2);
   });

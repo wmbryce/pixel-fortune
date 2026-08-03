@@ -28,9 +28,7 @@ export default function TarotLayout({ children }: Props) {
       className="flex min-h-[100dvh] flex-col bg-black_01 lg:mx-16"
     >
       <PageHeader />
-      <div className="custom-background flex flex-1 flex-col">
-        {children}
-      </div>
+      <div className="custom-background flex flex-1 flex-col">{children}</div>
     </PageTransition>
   );
 }

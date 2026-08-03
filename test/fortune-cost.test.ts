@@ -9,7 +9,11 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { costMicros } from '@/server/pricing';
-import { config, UNPRICED_READING_BUDGET_USD, MICROS_PER_USD } from '@/server/config';
+import {
+  config,
+  UNPRICED_READING_BUDGET_USD,
+  MICROS_PER_USD,
+} from '@/server/config';
 import { FORTUNE_MODEL, MAX_PROMPT_TOKENS } from '@/server/model';
 
 const worstCaseMicros = () =>

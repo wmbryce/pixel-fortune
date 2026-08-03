@@ -76,7 +76,13 @@ export type SpreadPlan = {
   fits: boolean;
 };
 
-const LAYOUTS = [[[0, 1, 2, 3, 4]], [[0, 1], [2, 3, 4]]];
+const LAYOUTS = [
+  [[0, 1, 2, 3, 4]],
+  [
+    [0, 1],
+    [2, 3, 4],
+  ],
+];
 
 function candidate(w: number, h: number, rows: number[][]): SpreadPlan {
   const cols = Math.max(...rows.map(r => r.length));
@@ -108,7 +114,7 @@ export function planSpread(w: number, h: number): SpreadPlan {
   // Nothing fits. Overflowing the width puts cards past an edge that cannot be
   // scrolled back to, so prefer the plan that stays inside it; a taller plan
   // only costs the scroll the stage now reserves.
-  if (oneRow.width <= w !== (twoRows.width <= w))
+  if (oneRow.width <= w !== twoRows.width <= w)
     return oneRow.width <= w ? oneRow : twoRows;
   return twoRows.height < oneRow.height ? twoRows : oneRow;
 }
@@ -194,8 +200,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const grid = (index: number) => {
     const row = rows.findIndex(r => r.includes(index));
     const col = rows[row].indexOf(index);
-    const width =
-      rows[row].length * cell.width + (rows[row].length - 1) * GAP;
+    const width = rows[row].length * cell.width + (rows[row].length - 1) * GAP;
     return {
       x: Math.max(0, (box.w - width) / 2) + col * (cell.width + GAP),
       y: gridTop + row * (cell.height + GAP),

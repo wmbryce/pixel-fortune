@@ -128,7 +128,10 @@ function advance(state: DialogState, allRevealed: boolean): DialogState {
     case 'greeting':
       // A reading is on its way from the moment the hand is asked for, which is
       // what the button's loading label reads off.
-      return { ...move(state, { name: 'dealing' }), reading: { status: 'pending' } };
+      return {
+        ...move(state, { name: 'dealing' }),
+        reading: { status: 'pending' },
+      };
     case 'reveal':
       if (!allRevealed) return refuse(state, BLOCKED_MESSAGE);
       // The reading is still on its way, and the button already says so.

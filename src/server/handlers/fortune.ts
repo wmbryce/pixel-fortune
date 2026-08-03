@@ -1,8 +1,8 @@
-import { CardType } from "@/types";
-import { config } from "../config";
-import { noteCeilingHit } from "../ceiling";
-import { FORTUNE_MODEL } from "../model";
-import OpenAI from "openai";
+import { CardType } from '@/types';
+import { config } from '../config';
+import { noteCeilingHit } from '../ceiling';
+import { FORTUNE_MODEL } from '../model';
+import OpenAI from 'openai';
 
 let openai: OpenAI;
 
@@ -28,7 +28,7 @@ export { FORTUNE_MODEL };
  * ~600 output tokens, comfortably under `config.maxOutputTokens`.
  */
 const generateFortunePrompt = (tarotHand: CardType[]) => {
-  const cardString = tarotHand.map((card: CardType) => card?.name).join(", ");
+  const cardString = tarotHand.map((card: CardType) => card?.name).join(', ');
 
   return `
     You are a tarot reader giving a detailed, insightful reading from a draw of 5 cards.
@@ -73,7 +73,7 @@ export type GeneratedFortune = {
  * there the cut is made visible in the reading itself rather than handed over
  * as if it were the whole thing.
  */
-const SENTENCE_ENDS = [".", "!", "?"];
+const SENTENCE_ENDS = ['.', '!', '?'];
 
 type Trimmed = { reading: string; detail: string };
 
@@ -95,7 +95,7 @@ const trimUnfinished = (reading: string): Trimmed => {
       detail:
         trimmed.length < full.length
           ? `trimmed ${full.length - trimmed.length} unfinished characters`
-          : "it ended on a complete sentence, so nothing was trimmed",
+          : 'it ended on a complete sentence, so nothing was trimmed',
     };
   }
 
@@ -103,7 +103,7 @@ const trimUnfinished = (reading: string): Trimmed => {
   const kept = lastBreak > 0 ? full.slice(0, lastBreak) : full;
   return {
     reading: `${kept}…`,
-    detail: "no complete sentence to trim back to; marking the cut",
+    detail: 'no complete sentence to trim back to; marking the cut',
   };
 };
 
@@ -119,7 +119,7 @@ export const generateFortune = async (
   tarotHand: CardType[]
 ): Promise<GeneratedFortune | null> => {
   const response = await getOpenAIClient().chat.completions.create({
-    messages: [{ role: "user", content: generateFortunePrompt(tarotHand) }],
+    messages: [{ role: 'user', content: generateFortunePrompt(tarotHand) }],
     model: FORTUNE_MODEL,
     max_completion_tokens: config.maxOutputTokens,
   });
@@ -128,7 +128,7 @@ export const generateFortune = async (
   const reading = choice?.message?.content;
   if (!reading) return null;
 
-  const truncated = choice.finish_reason === "length";
+  const truncated = choice.finish_reason === 'length';
   const trimmed = truncated ? trimUnfinished(reading) : null;
   if (trimmed) noteCeilingHit(trimmed.detail);
 
