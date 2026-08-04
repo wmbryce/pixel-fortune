@@ -40,7 +40,22 @@ import {
  */
 export const WAITING_MESSAGE =
   'Your reading is still being written. The continue button will say when it is ready.';
-export const READY_MESSAGE = 'Your reading is ready. Press continue.';
+/**
+ * What happened, and nothing more, so it is safe to say at any moment. The
+ * reading routinely lands while the reveal prompt is still typing — the prompt
+ * is ~400 characters at 30ms each behind a 1600ms lead-in — and while the
+ * visitor is still turning cards.
+ */
+export const ARRIVED_MESSAGE = 'Your reading has arrived.';
+/**
+ * The instruction, which is a different claim: it names a control, so it may
+ * only be said once that control is in the document and would actually act. An
+ * instruction that would be refused is worse than silence — it misleads exactly
+ * the visitor who cannot see that the button is absent.
+ */
+export const PRESSABLE_MESSAGE = 'Press continue to read your fortune.';
+/** Both facts becoming true at once is one announcement, not two. */
+export const ARRIVED_AND_PRESSABLE_MESSAGE = `${ARRIVED_MESSAGE} ${PRESSABLE_MESSAGE}`;
 
 type Props = {
   /**
@@ -155,12 +170,27 @@ export default function DialogBox({
   );
 
   /**
-   * The half that matters most: the control becomes pressable on its own, some
+   * When the control would actually answer a press: the button is only in the
+   * document once the page is fully on screen, and `advance` only moves from
+   * the reveal with every card turned and the reading in hand — anything else
+   * is `BLOCKED_MESSAGE` and a shake, or the identical state back.
+   */
+  const pressable =
+    scene.name === 'reveal' &&
+    state.reading.status === 'ready' &&
+    allRevealed &&
+    state.typed;
+
+  /**
+   * The half that matters most: both of these become true on their own, some
    * seconds after the visitor last touched anything, and nothing else says so.
+   * They are separate announcements because they are separate claims — the
+   * reading arriving is a fact about the reading, and the instruction is a
+   * promise about a control. Said together only when they become true together.
    *
    * It is the *transition* that is announced, not the state — a reading already
    * in hand when the prompt opens is what the button's own label says, and
-   * needs no second telling. So the last pair is carried and compared, and a
+   * needs no second telling. So the last triple is carried and compared, and a
    * scene change clears the region rather than leaving a stale line behind for
    * a visitor reading the page.
    *
@@ -171,11 +201,22 @@ export default function DialogBox({
   const [last, setLast] = useState({
     scene: scene.name,
     waiting: waitingOnReading,
+    pressable,
   });
-  if (last.scene !== scene.name || last.waiting !== waitingOnReading) {
-    setLast({ scene: scene.name, waiting: waitingOnReading });
+  if (
+    last.scene !== scene.name ||
+    last.waiting !== waitingOnReading ||
+    last.pressable !== pressable
+  ) {
+    setLast({ scene: scene.name, waiting: waitingOnReading, pressable });
     if (last.scene !== scene.name) setStatus(null);
-    else if (last.waiting) say(READY_MESSAGE);
+    else {
+      const arrived = last.waiting && !waitingOnReading;
+      const opened = pressable && !last.pressable;
+      if (arrived && opened) say(ARRIVED_AND_PRESSABLE_MESSAGE);
+      else if (arrived) say(ARRIVED_MESSAGE);
+      else if (opened) say(PRESSABLE_MESSAGE);
+    }
   }
 
   const activated = useRef(false);
@@ -190,13 +231,15 @@ export default function DialogBox({
   const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
   // "Press any key to continue", so this is on the window rather than on the
-  // control — but a focused button already answers Enter and Space with a click
-  // of its own, so answering those two here as well would step the dialog
-  // twice. That guard now covers the cards too, which are buttons of their own,
-  // and it is what keeps Space working on a focused control now that
-  // `isAnyKeyPress` refuses it ambiently as the page's scroll key.
-  // `isAnyKeyPress` takes out the rest: Tab reaches those cards, and answering
-  // it here refused the advance and shook the box on every step between them.
+  // control — but a focused button already answers Enter with a click of its
+  // own, so answering it here as well would step the dialog twice. That guard
+  // now covers the cards too, which are buttons of their own. Space never
+  // reaches the guard: `isAnyKeyPress` refuses it ambiently as the page's
+  // scroll key, and what keeps it activating a focused control is the browser's
+  // synthesised click, which arrives at `press` through `onClick` without
+  // consulting this filter at all. `isAnyKeyPress` takes out the rest: Tab
+  // reaches those cards, and answering it here refused the advance and shook
+  // the box on every step between them.
   const anyKey = useCallback(
     (event: KeyboardEvent) => {
       if (!isAnyKeyPress(event)) return;

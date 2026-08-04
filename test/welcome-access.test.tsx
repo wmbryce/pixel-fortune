@@ -87,8 +87,9 @@ describe('Welcome, reached without a mouse', () => {
 
   /**
    * The hint is the screen's only tab stop, so it has to be a control the
-   * browser will focus and activate on its own — that is what carries Enter and
-   * Space now that the ambient path answers neither on a focused element.
+   * browser will focus and activate on its own. That is what carries Space,
+   * which the ambient path no longer answers at all: the browser synthesises a
+   * click on the focused button, and the click is the activation.
    */
   it('offers the hint as a real, focusable control', async () => {
     mount();

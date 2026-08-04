@@ -36,7 +36,9 @@ vi.mock('next/navigation', () => ({
 }));
 
 import DialogBox, {
-  READY_MESSAGE,
+  ARRIVED_AND_PRESSABLE_MESSAGE,
+  ARRIVED_MESSAGE,
+  PRESSABLE_MESSAGE,
   WAITING_MESSAGE,
 } from '@/app/_components/DialogBox';
 import CardTable from '@/app/_components/CardTable';
@@ -82,6 +84,15 @@ const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
 const live = () => document.querySelector('p[aria-live="polite"]');
 const alert = () => document.querySelector('p[role="alert"]');
 const status = () => document.querySelector('p[role="status"]');
+/**
+ * The control the "press continue" instruction names, found by its own name
+ * rather than by id: `AnimatePresence` keeps the page it is leaving mounted
+ * while the exit plays, so the id can still answer with the previous page's.
+ */
+const continueButton = () =>
+  Array.from(document.querySelectorAll('button')).find(
+    element => element.textContent === 'Continue'
+  );
 
 /**
  * Every key that moves rather than does, in the only context this filter ever
@@ -301,9 +312,80 @@ describe('DialogBox, driven by keyboard', () => {
     // Nothing was refused — the cards are all turned. This is a wait, not a no.
     expect(alert()).toBeNull();
 
+    // The button is already mounted and every card is up, so the reading
+    // landing makes both facts true at once — one announcement, not two.
     await tick(10_000);
-    expect(status()?.textContent).toBe(READY_MESSAGE);
+    expect(status()?.textContent).toBe(ARRIVED_AND_PRESSABLE_MESSAGE);
     expect(button()?.getAttribute('aria-busy')).toBe('false');
+  });
+
+  /**
+   * The reading routinely lands while the reveal prompt is still typing — it is
+   * ~400 characters at 30ms each behind a 1600ms lead-in, and a reading is back
+   * in a few seconds. The Continue button does not exist until the page is
+   * fully on screen, so an announcement naming it would send a screen-reader
+   * visitor to a control that is not in the document.
+   */
+  it('states that the reading arrived without naming a control that is absent', async () => {
+    server.delay = 3000;
+    mount(true);
+    await tick(1200);
+    await keyPress(); // fill the greeting in
+    await keyPress(); // Draw Hand
+    await tick(2400); // the reveal beat; the prompt starts typing
+    await tick(1000); // the reading lands, mid lead-in
+
+    // The control the instruction would name is not in the document: the page
+    // is still typing, so the reveal's Continue has not mounted.
+    expect(continueButton()).toBeUndefined();
+    expect(status()?.textContent).toBe(ARRIVED_MESSAGE);
+  });
+
+  /**
+   * The other way the old copy lied: the visitor is normally still turning
+   * cards when the reading lands, and a press with a card face down is refused
+   * — the exact blame this ticket exists to stop. So the arrival is stated, and
+   * the instruction waits until the press would actually be taken.
+   */
+  it('holds the instruction until the press would be taken, then gives it once', async () => {
+    server.delay = 10_000;
+    const view = mount(false);
+    await tick(1200);
+    await keyPress(); // fill the greeting in
+    await keyPress(); // Draw Hand
+    await tick(2400); // the reveal beat
+    await keyPress(); // fill the reveal prompt in, so the button is mounted
+
+    await tick(10_000);
+    expect(continueButton()).toBeDefined();
+    expect(status()?.textContent).toBe(ARRIVED_MESSAGE);
+
+    await act(async () => {
+      view.rerender(
+        <DialogBox
+          readingToken="t"
+          allRevealed={true}
+          onDraw={() => {}}
+          onReset={() => {}}
+        />
+      );
+    });
+    expect(status()?.textContent).toBe(PRESSABLE_MESSAGE);
+
+    // Once. A re-render that changes nothing must not be a second telling — an
+    // announcement is a transition, not a state read out on every commit.
+    const said = status()?.firstElementChild;
+    await act(async () => {
+      view.rerender(
+        <DialogBox
+          readingToken="t"
+          allRevealed={true}
+          onDraw={() => {}}
+          onReset={() => {}}
+        />
+      );
+    });
+    expect(status()?.firstElementChild).toBe(said);
   });
 
   /**

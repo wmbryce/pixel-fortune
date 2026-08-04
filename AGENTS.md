@@ -156,9 +156,9 @@ looked convenient and was a wall (#18).
   activates, because the browser synthesises a click there and the click is
   what reaches the dialog. Enter is not a scroll key at `<body>` level, so
   Enter stays ambient. Shortcut combos are out; every other key still counts,
-  focused or not. `DialogBox` additionally ignores Enter/Space aimed at any
-  button, because the browser already answers those with a click of the
-  button's own.
+  focused or not. `DialogBox` additionally ignores Enter aimed at any button,
+  because the browser already answers it with a click of the button's own;
+  Space never reaches that guard, since the filter has already refused it.
 - **A face-down card must not name itself.** Both faces are mounted from the
   first frame, so the front's `alt` used to read out a card nobody had turned,
   and the caption sits at `opacity: 0` rather than out of the tree. Both faces
@@ -175,12 +175,22 @@ looked convenient and was a wall (#18).
   every card turned and the reading still coming, `advance` returns the
   identical state — no move, no refusal, nothing to re-render — and the button
   then flips `loading` → `Continue` on its own. `DialogBox` carries a second
-  polite region for that, holding status and never the reading: it acknowledges
-  the press and announces the moment the control becomes pressable. It is
+  polite region for that, holding status and never the reading. It is
   presentation, a string with a nonce so a repeat is a fresh node, never dialog
   state and never a new event — `machine.ts` is right that neither is a move.
   `DialogButton` carries `aria-busy` while it waits, which is also why it is
   never `disabled`.
+
+  What that region says is split by what is true at the moment, because an
+  instruction that would be refused is worse than silence: it misleads exactly
+  the visitor who cannot see that the button is absent. The reading arriving is
+  stated as a fact and names no control, since it routinely lands while the
+  ~400-character prompt is still typing (the button is not mounted until the
+  page is fully on screen) and while cards are still face down (a press would
+  answer `BLOCKED_MESSAGE`). "Press continue" is said only on the transition
+  into the condition where the button is mounted _and_ `advance` would move —
+  reveal, reading ready, every card turned, page typed. Both becoming true at
+  once is one announcement, not two.
 
 `DialogBox` also gives focus back to its button when it remounts after a page
 types, but only from `<body>` and only once the visitor has pressed it at least
