@@ -367,7 +367,9 @@ domain change is all three or none. The OG image is a real file,
 `public/assets/og-image.png` — 1200×630, the welcome art letterboxed on its own
 border colour — because a metadata tag pointing at a 404 renders link previews
 broken rather than plain; the reference this replaced had never had one behind
-it. `docs/demo.gif` is the README's demo, recorded off the live site.
+it. `test/site-metadata.test.ts` pins all of it — the app renders identically
+with a stale origin in the sitemap, so nothing else catches a partial change.
+`docs/demo.gif` is the README's demo, recorded off the live site.
 
 ## Maintaining this file
 
