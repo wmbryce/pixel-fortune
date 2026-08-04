@@ -34,6 +34,17 @@
   animation: hint-blink 2s infinite 2s;
 }
 
+/* The hint is the screen's only control, and a control that is invisible half
+   the time cannot be focused usefully — so focusing it stops the blink and
+   holds it on. */
+.continue-hint:focus-visible {
+  opacity: 1;
+  animation: none;
+  outline: 2px solid #fbc070;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .continue-hint {
     opacity: 1;

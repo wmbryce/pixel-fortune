@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   AnimatePresence,
   animate,
@@ -12,6 +12,7 @@ import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
 import TypingText from '../TypingText';
 import { usePageLeave } from '../PageTransition';
+import { isAnyKeyPress } from '../../_libs/keys';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
 import {
   INITIAL,
@@ -23,6 +24,38 @@ import {
   splitReading,
   type Scene,
 } from './machine';
+
+/**
+ * The reveal prompt's two silent moments, said out loud.
+ *
+ * `machine.ts` is right not to model either: a press it declines to act on is
+ * not a move, and the reading landing is not one either — that is the property
+ * the whole machine is built on. But the consequence is that a visitor standing
+ * at the prompt with every card turned presses a control labelled `loading`,
+ * gets back the identical state, and is told nothing — not that the press
+ * landed, and not that the control became pressable a few seconds later.
+ *
+ * So these are the component's, not the machine's: presentation, a string in a
+ * polite region, never dialog state and never an event.
+ */
+export const WAITING_MESSAGE =
+  'Your reading is still being written. The continue button will say when it is ready.';
+/**
+ * What happened, and nothing more, so it is safe to say at any moment. The
+ * reading routinely lands while the reveal prompt is still typing — the prompt
+ * is ~400 characters at 30ms each behind a 1600ms lead-in — and while the
+ * visitor is still turning cards.
+ */
+export const ARRIVED_MESSAGE = 'Your reading has arrived.';
+/**
+ * The instruction, which is a different claim: it names a control, so it may
+ * only be said once that control is in the document and would actually act. An
+ * instruction that would be refused is worse than silence — it misleads exactly
+ * the visitor who cannot see that the button is absent.
+ */
+export const PRESSABLE_MESSAGE = 'Press continue to read your fortune.';
+/** Both facts becoming true at once is one announcement, not two. */
+export const ARRIVED_AND_PRESSABLE_MESSAGE = `${ARRIVED_MESSAGE} ${PRESSABLE_MESSAGE}`;
 
 type Props = {
   /**
@@ -115,18 +148,101 @@ export default function DialogBox({
     return () => controls.stop();
   }, [refusal, reduced, shakeX]);
 
-  const press = useCallback(
-    () => dispatch({ type: 'advance', allRevealed }),
-    [allRevealed]
+  /**
+   * The reveal prompt, with the reading still on its way — the one place an
+   * advance is neither taken nor refused. Read off the same two fields the
+   * button's `loading` label is, because it is the same fact.
+   */
+  const waitingOnReading =
+    scene.name === 'reveal' && state.reading.status !== 'ready';
+
+  // Carried like `Refusal`, and for the same reason: the messages are fixed, so
+  // a repeat is identical text in a region that never changed and no assistive
+  // path fires. A nonce makes each one a fresh node.
+  const [status, setStatus] = useState<{
+    message: string;
+    nonce: number;
+  } | null>(null);
+  const say = useCallback(
+    (message: string) =>
+      setStatus(current => ({ message, nonce: (current?.nonce ?? 0) + 1 })),
+    []
   );
+
+  /**
+   * When the control would actually answer a press: the button is only in the
+   * document once the page is fully on screen, and `advance` only moves from
+   * the reveal with every card turned and the reading in hand — anything else
+   * is `BLOCKED_MESSAGE` and a shake, or the identical state back.
+   */
+  const pressable =
+    scene.name === 'reveal' &&
+    state.reading.status === 'ready' &&
+    allRevealed &&
+    state.typed;
+
+  /**
+   * The half that matters most: both of these become true on their own, some
+   * seconds after the visitor last touched anything, and nothing else says so.
+   * They are separate announcements because they are separate claims — the
+   * reading arriving is a fact about the reading, and the instruction is a
+   * promise about a control. Said together only when they become true together.
+   *
+   * It is the *transition* that is announced, not the state — a reading already
+   * in hand when the prompt opens is what the button's own label says, and
+   * needs no second telling. So the last triple is carried and compared, and a
+   * scene change clears the region rather than leaving a stale line behind for
+   * a visitor reading the page.
+   *
+   * Adjusted during render, the way `TypingText` tracks its page: an effect
+   * would be a second render's worth of cascade for a value this one already
+   * knows.
+   */
+  const [last, setLast] = useState({
+    scene: scene.name,
+    waiting: waitingOnReading,
+    pressable,
+  });
+  if (
+    last.scene !== scene.name ||
+    last.waiting !== waitingOnReading ||
+    last.pressable !== pressable
+  ) {
+    setLast({ scene: scene.name, waiting: waitingOnReading, pressable });
+    if (last.scene !== scene.name) setStatus(null);
+    else {
+      const arrived = last.waiting && !waitingOnReading;
+      const opened = pressable && !last.pressable;
+      if (arrived && opened) say(ARRIVED_AND_PRESSABLE_MESSAGE);
+      else if (arrived) say(ARRIVED_MESSAGE);
+      else if (opened) say(PRESSABLE_MESSAGE);
+    }
+  }
+
+  const activated = useRef(false);
+  const press = useCallback(() => {
+    activated.current = true;
+    // Acknowledge the press the machine will decline, so it is never silent.
+    // Only once the page is on screen: before that the press fills the page in,
+    // which is a press that already landed visibly.
+    if (waitingOnReading && allRevealed && state.typed) say(WAITING_MESSAGE);
+    dispatch({ type: 'advance', allRevealed });
+  }, [allRevealed, waitingOnReading, state.typed, say]);
   const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
   // "Press any key to continue", so this is on the window rather than on the
-  // control — but a focused button already answers Enter and Space with a click
-  // of its own, so answering those two here as well would step the dialog
-  // twice. Every other key is still the "press any key" path, focus or not.
+  // control — but a focused button already answers Enter with a click of its
+  // own, so answering it here as well would step the dialog twice. That guard
+  // now covers the cards too, which are buttons of their own. Space never
+  // reaches the guard: `isAnyKeyPress` refuses it ambiently as the page's
+  // scroll key, and what keeps it activating a focused control is the browser's
+  // synthesised click, which arrives at `press` through `onClick` without
+  // consulting this filter at all. `isAnyKeyPress` takes out the rest: Tab
+  // reaches those cards, and answering it here refused the advance and shook
+  // the box on every step between them.
   const anyKey = useCallback(
     (event: KeyboardEvent) => {
+      if (!isAnyKeyPress(event)) return;
       if (
         event.target instanceof HTMLButtonElement &&
         (event.key === 'Enter' || event.key === ' ')
@@ -136,6 +252,25 @@ export default function DialogBox({
     },
     [press]
   );
+
+  /**
+   * The button is unmounted while a page types and mounted again when it is
+   * done, so pressing it drops focus to `<body>` every time — a keyboard
+   * visitor would have to tab back in at each paragraph. Give it back, but only
+   * from `<body>`: if the visitor has tabbed off to a card, the reveal prompt
+   * finishing its 13 seconds of typing must not pull them out of the spread.
+   *
+   * Handing it *back* is the whole of the job, so the first arrival is
+   * deliberately excluded — `<body>` is also what holds focus when nobody has
+   * touched anything yet. The live region fires the greeting whole about a
+   * second in, and a focus move mid-announcement cuts off the one thing telling
+   * the visitor where they are. `activated` is a ref rather than state because
+   * remembering this must not re-render the box.
+   */
+  const keepFocus = useCallback((node: HTMLButtonElement | null) => {
+    if (node && activated.current && document.activeElement === document.body)
+      node.focus({ preventScroll: true });
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', anyKey);
@@ -189,6 +324,43 @@ export default function DialogBox({
       style={{ x: shakeX }}
       className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
     >
+      {/*
+        The reading, one announcement per page.
+
+        The granularity is the whole paragraph, deliberately. A live region on
+        the text the typewriter is building announces a character at a time —
+        thirty times a second of "T", "Th", "The" — which is noise, not access.
+        A region on the *page* fires once, when the box turns to a new
+        paragraph, and says the whole of it; the typed copy is `aria-hidden`, so
+        it is said once rather than twice. `aria-atomic` because a paragraph is
+        one utterance and half of it is not worth hearing.
+
+        It sits outside the keyed `TypingText` on purpose: a live region has to
+        be in the document *before* its content changes to be announced, and
+        that one is torn down and rebuilt at every page.
+
+        The consequence is that a screen reader hears the paragraph in full
+        while the typewriter is still on its first characters. That is the right
+        way round — the reading is the content, the typing is the theatre — and
+        the visitor is not made to wait 13 seconds for a button.
+      */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {page?.body ?? ''}
+      </p>
+      {/*
+        Status, and only status — never the reading, which the region above
+        owns. It is a separate region precisely so the two cannot overwrite each
+        other: this one speaks while the visitor is standing at the reveal
+        prompt, which is exactly when that one is holding the prompt's prose.
+
+        The region itself is permanent and the message inside it is keyed,
+        because a live region must be in the document before its content changes
+        to be announced — and because the same string said twice has to be two
+        nodes to be heard twice.
+      */}
+      <p className="sr-only" role="status" aria-atomic="true">
+        {status && <span key={status.nonce}>{status.message}</span>}
+      </p>
       <motion.div
         className="flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
         variants={dialogVariants}
@@ -221,16 +393,22 @@ export default function DialogBox({
               transition={reduced ? CROSSFADE : SPRING.snap}
             >
               {refusal && (
-                <p className="font-sans mr-4 text-brown_03">
+                // Keyed on the nonce so a second refusal replaces the node
+                // rather than rewriting nothing: the message is the same every
+                // time, and an alert that does not change is never announced.
+                <p
+                  key={refusal.nonce}
+                  role="alert"
+                  className="font-sans mr-4 text-brown_03"
+                >
                   {refusal.message}
                 </p>
               )}
               <DialogButton
                 id="dialogButton"
+                ref={keepFocus}
                 onClick={press}
-                loading={
-                  scene.name === 'reveal' && state.reading.status !== 'ready'
-                }
+                loading={waitingOnReading}
               >
                 {page.label}
               </DialogButton>

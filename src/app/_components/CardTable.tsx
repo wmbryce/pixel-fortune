@@ -144,6 +144,8 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     Array(5).fill(false)
   );
   const revealedRef = useRef(revealedCards);
+  // The flip is the whole feedback a reveal gives, and it is entirely visual.
+  const [announcement, setAnnouncement] = useState('');
 
   const handSize = tarotHand?.length ?? 0;
 
@@ -157,6 +159,7 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     setDealt(0);
     setSettled(false);
     setRevealedCards(Array(5).fill(false));
+    setAnnouncement('');
   }
 
   // Keeps the batch-safety ref honest through a reset, which changes the array
@@ -186,6 +189,10 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     const next = revealedRef.current.map((r, i) => (i === index ? true : r));
     revealedRef.current = next;
     setRevealedCards(next);
+    const count = next.filter(Boolean).length;
+    setAnnouncement(
+      `${tarotHand?.[index]?.name}. ${count} of ${handSize} cards revealed.`
+    );
     if (!next.includes(false)) setAllRevealed(true);
   };
 
@@ -257,6 +264,12 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
             />
           </motion.div>
         ))}
+      {/* One announcement per reveal — the card that turned and how far
+          through the spread that leaves the visitor. Batched reveals collapse
+          to the last, which is the only one still true. */}
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export const LABEL_H = 22;
 /**
  * The name is unreadable under a small card, and dropping its row is the
  * difference between the spread fitting a short viewport and not. Screen
- * readers still get the name from the front face's `alt`.
+ * readers still get the name, from the control's own label.
  */
 export const LABEL_MIN_CARD = 64;
 export const showsLabel = (width: number) => width >= LABEL_MIN_CARD;
@@ -75,6 +75,17 @@ export default function Card(props: Props) {
     if (!reveal) props.setReveal(props.index);
   };
 
+  /**
+   * A face-down card must not say what it is — the front face is mounted from
+   * the first frame (that is what there is to flip between), so its `alt` used
+   * to read the name out of a card nobody had turned yet. Both faces are
+   * decorative now and the control carries the whole answer: a position while
+   * it is down, the name once it is up.
+   */
+  const label = reveal
+    ? `Card ${props.index + 1}: ${data?.name}, revealed`
+    : `Card ${props.index + 1}, face down. Activate to reveal.`;
+
   // Colour and opacity only, so these read the same either way and take the
   // cross-fade token unconditionally.
   const backgroundVariants = {
@@ -99,9 +110,11 @@ export default function Card(props: Props) {
       className="bg-brown_04 flex flex-col rounded-md p-2"
     >
       <div style={{ perspective: 1000 }}>
-        <motion.div
+        <motion.button
           id={props.id}
+          type="button"
           onClick={revealCard}
+          aria-label={label}
           // Both pointer states survive reduced motion as a dim rather than a
           // lift, the shallower one for hover: feedback that registers nothing
           // at all is the one thing a disable would cost. Still gated on the
@@ -119,7 +132,15 @@ export default function Card(props: Props) {
               : { y: -4, transition: SPRING.nudge }
           }
           style={{ transformStyle: 'preserve-3d', rotateY, scale, z }}
-          className={cn('relative select-none', props.className)}
+          // The ring sits 4px out, inside the 8px tint padding the frame
+          // already carries, so it lands on the dark tint rather than on the
+          // white card — the one place around a card where a light outline has
+          // contrast to spend.
+          className={cn(
+            'relative block w-full select-none rounded-md outline-none',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brown_02',
+            props.className
+          )}
         >
           <div
             className="bg-white rounded-md p-2"
@@ -137,7 +158,7 @@ export default function Card(props: Props) {
                 fill
                 className="object-cover rounded-sm"
                 src={'/assets/cards/' + data.image}
-                alt={data.name}
+                alt=""
                 sizes={`${Math.ceil(width)}px`}
               />
             </div>
@@ -155,15 +176,19 @@ export default function Card(props: Props) {
                 fill
                 className="object-cover rounded-sm"
                 src="/assets/cards/CardBack.png"
-                alt="Card Back"
+                alt=""
                 sizes={`${Math.ceil(width)}px`}
               />
             </div>
           </motion.div>
-        </motion.div>
+        </motion.button>
       </div>
       {showsLabel(width) && (
+        // Hidden from the accessibility tree rather than tied to `reveal`: it
+        // is at `opacity: 0` while the card is down, which a screen reader
+        // reads straight through. The control's label is the one answer.
         <motion.div
+          aria-hidden="true"
           className="text-brown_02 text-center font-sans text-xs line-clamp-1"
           style={{ height: LABEL_H, lineHeight: `${LABEL_H}px` }}
           variants={textVariants}
