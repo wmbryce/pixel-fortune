@@ -359,6 +359,18 @@ followed. Don't reintroduce a baseline: eslint has no suppression and no
 `--max-warnings` escape hatch, and adding one would make the lint step
 decorative.
 
+## The deployed origin is written down in three places
+
+`SITE_URL` in `src/app/layout.tsx` (as `metadataBase`, it is what makes the
+OG/Twitter image URLs absolute), `public/robots.txt` and `public/sitemap.xml`. A
+domain change is all three or none. The OG image is a real file,
+`public/assets/og-image.png` — 1200×630, the welcome art letterboxed on its own
+border colour — because a metadata tag pointing at a 404 renders link previews
+broken rather than plain; the reference this replaced had never had one behind
+it. `test/site-metadata.test.ts` pins all of it — the app renders identically
+with a stale origin in the sitemap, so nothing else catches a partial change.
+`docs/demo.gif` is the README's demo, recorded off the live site.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
