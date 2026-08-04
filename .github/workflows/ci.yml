@@ -3,8 +3,11 @@
 # The build runs here on purpose: it is the one check too heavy for the
 # development machine, and CI is where it is affordable.
 #
-# Steps carry `if: !cancelled()` so a red lint still reports typecheck, test and
-# build rather than masking them — the job is red either way.
+# Steps after lint run whenever the install succeeded, so a red lint still
+# reports typecheck, test and build rather than masking them — the job is red
+# either way. A failed `npm ci` skips them instead: without node_modules all
+# three fail for the same reason, and three failures for one broken thing
+# trains people to skim past red.
 name: CI
 
 on:
@@ -14,6 +17,11 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# Every step here reads; `npm ci` runs dependency lifecycle scripts, so the
+# token they see is scoped down to what checkout needs.
+permissions:
+  contents: read
 
 jobs:
   checks:
@@ -27,15 +35,16 @@ jobs:
           cache: npm
 
       # ci, not install: the lockfile is authoritative.
-      - run: npm ci
+      - id: install
+        run: npm ci
 
       - run: npm run lint
 
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run typecheck
 
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm test
 
-      - if: ${{ !cancelled() }}
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build

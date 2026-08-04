@@ -247,12 +247,16 @@ Component specs mock `src/app/_trpc/client` rather than standing up tRPC.
 `.github/workflows/ci.yml` runs lint, typecheck, test and build on every push
 and PR, on the Node in `.nvmrc` with `npm ci`. **The build belongs on CI, not on
 your machine** — it is the one check the development box cannot afford, which is
-why every step after lint carries `if: !cancelled()`: a red lint must not mask
-the other three.
+why every step after lint carries
+`if: !cancelled() && steps.install.outcome == 'success'`: a red lint must not
+mask the other three, but a failed `npm ci` must skip them rather than fail all
+three for the same missing `node_modules`.
 
 `shuffleArray` (`src/server/handlers/deck.ts`) shuffles in place _and_ returns
 the same array. Kept dual and pinned by `test/deck.test.ts`; `createTarotDeck`
 copies `TarotDeck` before calling it, and any new caller must do the same.
+`drawHand` (`src/server/handlers/reading.ts`) is exported only so the same spec
+pins the real deal instead of a copy of it.
 
 ## Formatting is enforced, and prettier is pinned
 

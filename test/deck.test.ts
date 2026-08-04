@@ -9,9 +9,8 @@ import {
   createTarotDeck,
   shuffleArray,
 } from '@/server/handlers/deck';
+import { drawHand } from '@/server/handlers/reading';
 import { TarotDeck } from '@/server/data/tarot-deck';
-
-const drawHand = () => createTarotDeck().slice(0, 5);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -24,8 +23,9 @@ describe('shuffleArray', () => {
   });
 
   it('mutates its argument rather than copying it', () => {
-    // Fisher-Yates with random pinned to 0 walks every element down to index 0,
-    // which reverses the array — so the mutation is visible, not incidental.
+    // Fisher-Yates with random pinned to 0 swaps every element with index 0 in
+    // turn, which rotates the array left by one — so the mutation is visible,
+    // not incidental.
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const input = [1, 2, 3, 4];
     shuffleArray(input);
