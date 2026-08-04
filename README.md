@@ -46,8 +46,8 @@ are the ones worth the click.
 - **The spread measures its stage instead of picking a breakpoint.** Both
   candidate layouts (five across, 2+3) are built and the one yielding the larger
   card without overflow wins. The binding constraint is vertical, not
-  horizontal: flipping a card barely widens it but makes it 19% taller, above a
-  dialog box with a fixed height. A media query cannot express that.
+  horizontal: a card grows taller as it turns, and two rows of them have to
+  clear a dialog box of fixed height. A media query cannot express that.
   `src/app/_components/CardTable.tsx`.
 - **Reduced motion is a cross-fade, not an off switch.** The card stops turning
   but its back still fades off the front; the deal keeps its beat while each
@@ -79,5 +79,5 @@ Next.js 16 (App Router) · React 19 · tRPC 11 · `motion` 12 · Tailwind 3 ·
 TypeScript · Vitest. Deployed on Vercel with Upstash Redis for durable budget,
 cache and rate-limit state.
 
-`npm test` (195 tests), `npm run typecheck`, `npm run lint`. CI runs all three
+`npm test`, `npm run typecheck`, `npm run lint`. CI runs all three
 plus the build on every push. Architecture and sharp edges are in `AGENTS.md`.
