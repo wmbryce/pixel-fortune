@@ -114,8 +114,9 @@ export function planSpread(w: number, h: number): SpreadPlan {
   // Nothing fits. Overflowing the width puts cards past an edge that cannot be
   // scrolled back to, so prefer the plan that stays inside it; a taller plan
   // only costs the scroll the stage now reserves.
-  if (oneRow.width <= w !== twoRows.width <= w)
-    return oneRow.width <= w ? oneRow : twoRows;
+  const oneRowFits = oneRow.width <= w;
+  const twoRowsFit = twoRows.width <= w;
+  if (oneRowFits !== twoRowsFit) return oneRowFits ? oneRow : twoRows;
   return twoRows.height < oneRow.height ? twoRows : oneRow;
 }
 

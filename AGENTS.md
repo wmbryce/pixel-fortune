@@ -252,6 +252,13 @@ reformats the repo differently on the next machine, which is worse than none.
 `npm run format` fixes. Keep any reformat in its own commit; mixed with real
 changes it is unreviewable.
 
+Prettier runs first because eslint still exits non-zero on a baseline of
+exactly **1** problem — the `@typescript-eslint/no-explicit-any` on
+`shuffleArray(array: any[])` in `src/server/handlers/deck.ts`, which is
+intentional and owned by issue #19 (Tests and CI). A red `npm run lint` that
+reports that one finding is expected, not something your change broke; a second
+finding is.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
