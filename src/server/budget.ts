@@ -191,7 +191,10 @@ export async function commitReading(
   reservation: Reservation,
   actualMicros: number | null
 ) {
-  const charged = Math.min(actualMicros ?? reservation.micros, reservation.micros);
+  const charged = Math.min(
+    actualMicros ?? reservation.micros,
+    reservation.micros
+  );
   if (charged !== reservation.micros) {
     await getStore().incrBy(
       spendKey(reservation.month),

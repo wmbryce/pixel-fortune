@@ -133,8 +133,8 @@ inside is reserved, so that layout costs nothing else on the page. Decided in
 ## The card reveal is a flip, so both faces are always mounted
 
 `Card.tsx` turns the card on `rotateY` (back at 0deg, front at 180deg) with
-`backface-visibility: hidden`. The old reveal cross-faded the back *out of the
-tree*, so "is the card back in the DOM?" used to answer "is this card hidden?" —
+`backface-visibility: hidden`. The old reveal cross-faded the back _out of the
+tree_, so "is the card back in the DOM?" used to answer "is this card hidden?" —
 it no longer does, and a test that assumes it passes on a card that never turns.
 Assert the rotation instead (`test/card-reveal.test.tsx`).
 
@@ -180,7 +180,7 @@ replaced. Three parts of it are load-bearing and none is decoration:
   on mount). The exit is ~240ms; that is not a head start a cold route arrives
   inside.
 - **`loading.tsx` under each route** is what the App Router shows while the
-  destination resolves. The push fires *after* the outgoing screen has faded to
+  destination resolves. The push fires _after_ the outgoing screen has faded to
   nothing, so without a boundary a cold hop is a blank screen for the whole
   fetch — worse than the hard swap this replaced.
 
@@ -198,7 +198,7 @@ Two testing consequences:
 `CardTable.tsx` measures its stage and calls `planSpread`, which builds both
 candidates — five across and 2+3 — and takes the one that actually yields the
 larger card without overflowing, never a single threshold: on a short wide
-stage 2+3 comes back both smaller *and* taller. Breakpoints cannot express the
+stage 2+3 comes back both smaller _and_ taller. Breakpoints cannot express the
 binding constraint either, which is vertical: two rows above the dialog box's
 fixed 256px. Three things follow, and all are easy to undo by accident:
 
@@ -243,6 +243,21 @@ clean. Don't bump to `latest`.
 
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
 Component specs mock `src/app/_trpc/client` rather than standing up tRPC.
+
+## Formatting is enforced, and prettier is pinned
+
+`npm run lint` runs `prettier --check .` before eslint, so a formatting drift
+fails lint. `prettier` is pinned exactly (no caret) — a floating formatter
+reformats the repo differently on the next machine, which is worse than none.
+`npm run format` fixes. Keep any reformat in its own commit; mixed with real
+changes it is unreviewable.
+
+Prettier runs first because eslint still exits non-zero on a baseline of
+exactly **1** problem — the `@typescript-eslint/no-explicit-any` on
+`shuffleArray(array: any[])` in `src/server/handlers/deck.ts`, which is
+intentional and owned by issue #19 (Tests and CI). A red `npm run lint` that
+reports that one finding is expected, not something your change broke; a second
+finding is.
 
 ## Maintaining this file
 

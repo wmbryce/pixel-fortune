@@ -34,9 +34,7 @@ const SHORT_STAGES = [
 
 const widest = (plan: ReturnType<typeof planSpread>) =>
   Math.max(
-    ...plan.rows.map(
-      r => r.length * plan.cell.width + (r.length - 1) * GAP
-    )
+    ...plan.rows.map(r => r.length * plan.cell.width + (r.length - 1) * GAP)
   );
 
 const tall = (plan: ReturnType<typeof planSpread>) =>
@@ -108,18 +106,21 @@ describe('planSpread', () => {
     }
   );
 
-  it.each(SHORT_STAGES)('reports what the stage must reserve at $name', stage => {
-    const plan = planSpread(stage.w, stage.h);
+  it.each(SHORT_STAGES)(
+    'reports what the stage must reserve at $name',
+    stage => {
+      const plan = planSpread(stage.w, stage.h);
 
-    // What CardTable puts on the stage as `minHeight`, so a plan taller than
-    // the stage grows the column and scrolls instead of painting the cards
-    // over the header and the dialog box.
-    expect(plan.height).toEqual(tall(plan));
-    expect(plan.width).toEqual(widest(plan));
-    expect(plan.fits).toBe(tall(plan) <= stage.h && widest(plan) <= stage.w);
-    // A width overflow has no scroll back to it, so it is never the trade.
-    expect(widest(plan)).toBeLessThanOrEqual(stage.w);
-  });
+      // What CardTable puts on the stage as `minHeight`, so a plan taller than
+      // the stage grows the column and scrolls instead of painting the cards
+      // over the header and the dialog box.
+      expect(plan.height).toEqual(tall(plan));
+      expect(plan.width).toEqual(widest(plan));
+      expect(plan.fits).toBe(tall(plan) <= stage.h && widest(plan) <= stage.w);
+      // A width overflow has no scroll back to it, so it is never the trade.
+      expect(widest(plan)).toBeLessThanOrEqual(stage.w);
+    }
+  );
 
   it('reserving the plan settles in one pass', () => {
     // The reserve feeds back through the ResizeObserver, so the plan for the

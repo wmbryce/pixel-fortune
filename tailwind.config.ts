@@ -2,11 +2,7 @@ import type { Config } from 'tailwindcss';
 
 /** @type {import('tailwindcss').Config} */
 const config: Config = {
-  content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+  content: ['./src/app/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
       backgroundImage: {
@@ -20,10 +16,8 @@ const config: Config = {
       },
       colors: {
         black_01: '#0B0012',
-        blue_01: '#0A3465',
         brown_01: '#843706',
         brown_02: '#FBC070',
-        brown_025: '#FBC070F0',
         brown_03: '#5E140A',
         brown_04: '#0B0012B0',
       },

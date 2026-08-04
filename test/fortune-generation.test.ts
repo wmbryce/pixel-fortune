@@ -18,9 +18,13 @@ import { config } from '@/server/config';
 import { MAX_PROMPT_TOKENS } from '@/server/model';
 import { ceilingHits, resetCeilingHitsForTests } from '@/server/ceiling';
 
-const HAND: CardType[] = ['The Star', 'The Moon', 'The Sun', 'The Tower', 'The Fool'].map(
-  (name, id) => ({ id, name, image: `/${id}.png` })
-);
+const HAND: CardType[] = [
+  'The Star',
+  'The Moon',
+  'The Sun',
+  'The Tower',
+  'The Fool',
+].map((name, id) => ({ id, name, image: `/${id}.png` }));
 
 const completion = (content: string, finish_reason = 'stop') => ({
   model: `${FORTUNE_MODEL}-2024-07-18`,
@@ -72,7 +76,8 @@ describe('generateFortune', () => {
   });
 
   it('returns a finished reading untouched', async () => {
-    const reading = 'Past paragraph.\n\nPresent paragraph.\n\nFuture paragraph.';
+    const reading =
+      'Past paragraph.\n\nPresent paragraph.\n\nFuture paragraph.';
     create.mockResolvedValue(completion(reading));
 
     await expect(generateFortune(HAND)).resolves.toMatchObject({
@@ -103,7 +108,10 @@ describe('generateFortune', () => {
     'keeps a sentence that ended in %s rather than trimming past it',
     async mark => {
       create.mockResolvedValue(
-        completion(`So what do you fear${mark} The Tower says you already kn`, 'length')
+        completion(
+          `So what do you fear${mark} The Tower says you already kn`,
+          'length'
+        )
       );
 
       const generated = await generateFortune(HAND);
@@ -113,7 +121,9 @@ describe('generateFortune', () => {
   );
 
   it('marks the cut when there is no complete sentence to keep', async () => {
-    create.mockResolvedValue(completion('The Tower speaks of a fall you already kn', 'length'));
+    create.mockResolvedValue(
+      completion('The Tower speaks of a fall you already kn', 'length')
+    );
 
     const generated = await generateFortune(HAND);
 

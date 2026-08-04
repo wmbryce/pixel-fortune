@@ -39,8 +39,7 @@ export const showsLabel = (width: number) => width >= LABEL_MIN_CARD;
 /** What a card occupies once framed, tinted and captioned. */
 export const cardCell = (width: number) => ({
   width: width + CHROME,
-  height:
-    Math.round(width * 1.5) + CHROME + (showsLabel(width) ? LABEL_H : 0),
+  height: Math.round(width * 1.5) + CHROME + (showsLabel(width) ? LABEL_H : 0),
 });
 
 export default function Card(props: Props) {
@@ -133,10 +132,7 @@ export default function Card(props: Props) {
                 : { backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }
             }
           >
-            <div
-              className="relative"
-              style={{ width, height: artHeight }}
-            >
+            <div className="relative" style={{ width, height: artHeight }}>
               <Image
                 fill
                 className="object-cover rounded-sm"

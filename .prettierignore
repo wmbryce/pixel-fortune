@@ -1,0 +1,11 @@
+# untracked local agent config
+.claude
+
+node_modules
+.next
+out
+build
+coverage
+package-lock.json
+*.tsbuildinfo
+next-env.d.ts

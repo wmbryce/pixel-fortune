@@ -72,7 +72,8 @@ function createRedisStore({
     return body.result ?? null;
   };
 
-  const num = async (command: (string | number)[]) => Number(await send(command));
+  const num = async (command: (string | number)[]) =>
+    Number(await send(command));
   const str = async (command: (string | number)[]) => {
     const result = await send(command);
     return result === null || result === undefined ? null : String(result);
@@ -147,7 +148,10 @@ function createMemoryStore(): Store & { clear(): void } {
     async incrBy(key, by) {
       const entry = live(key);
       const next = Number(entry?.value ?? 0) + by;
-      strings.set(key, { value: String(next), expiresAt: entry?.expiresAt ?? null });
+      strings.set(key, {
+        value: String(next),
+        expiresAt: entry?.expiresAt ?? null,
+      });
       return next;
     },
     async get(key) {

@@ -17,8 +17,7 @@ const DATA: CardType = {
   image: 'Tarot_00_Fool.png',
 };
 
-const flipper = () =>
-  document.getElementById('t-card-0') as HTMLElement | null;
+const flipper = () => document.getElementById('t-card-0') as HTMLElement | null;
 
 /** Both faces are permanently mounted; only the rotation distinguishes them. */
 const faces = () => document.querySelectorAll('img');

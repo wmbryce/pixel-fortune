@@ -1,7 +1,3 @@
-export type FortuneType = {
-  reading: string;
-};
-
 export type CardType = {
   id: number;
   image: string;

@@ -1,14 +1,14 @@
-"use client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, loggerLink } from "@trpc/client";
-import React, { useState } from "react";
+'use client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { httpBatchLink, loggerLink } from '@trpc/client';
+import React, { useState } from 'react';
 
-import { trpc } from "./client";
+import { trpc } from './client';
 
 function getBaseUrl() {
-  if (typeof window !== "undefined")
+  if (typeof window !== 'undefined')
     // browser should use relative path
-    return "";
+    return '';
   if (process.env.VERCEL_URL)
     // reference for vercel.com
     return `https://${process.env.VERCEL_URL}`;
