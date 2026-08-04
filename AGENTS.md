@@ -239,10 +239,24 @@ The outer bound is Next.js: `npm run build` fails on TS 7 with "TypeScript 7.x d
 not provide the compiler API required by Next.js", even though `tsc --noEmit` is
 clean. Don't bump to `latest`.
 
-## Tests
+## Tests, and what CI runs
 
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
 Component specs mock `src/app/_trpc/client` rather than standing up tRPC.
+
+`.github/workflows/ci.yml` runs lint, typecheck, test and build on every push
+and PR, on the Node in `.nvmrc` with `npm ci`. **The build belongs on CI, not on
+your machine** — it is the one check the development box cannot afford, which is
+why every step after lint carries
+`if: !cancelled() && steps.install.outcome == 'success'`: a red lint must not
+mask the other three, but a failed `npm ci` must skip them rather than fail all
+three for the same missing `node_modules`.
+
+`shuffleArray` (`src/server/handlers/deck.ts`) shuffles in place _and_ returns
+the same array. Kept dual and pinned by `test/deck.test.ts`; `createTarotDeck`
+copies `TarotDeck` before calling it, and any new caller must do the same.
+`drawHand` (`src/server/handlers/reading.ts`) is exported only so the same spec
+pins the real deal instead of a copy of it.
 
 ## Formatting is enforced, and prettier is pinned
 
@@ -252,12 +266,13 @@ reformats the repo differently on the next machine, which is worse than none.
 `npm run format` fixes. Keep any reformat in its own commit; mixed with real
 changes it is unreviewable.
 
-Prettier runs first because eslint still exits non-zero on a baseline of
-exactly **1** problem — the `@typescript-eslint/no-explicit-any` on
-`shuffleArray(array: any[])` in `src/server/handlers/deck.ts`, which is
-intentional and owned by issue #19 (Tests and CI). A red `npm run lint` that
-reports that one finding is expected, not something your change broke; a second
-finding is.
+Prettier runs first, and the eslint baseline is **clean** — any finding is
+something your change broke. The one long-standing exception, an
+`@typescript-eslint/no-explicit-any` on `shuffleArray(array: any[])`, was
+carried on the assumption that issue #18 (Accessibility pass) would land the
+fix; #18 closed without a PR, so #33 made the function generic instead. Don't
+reintroduce a baseline: eslint has no suppression and no `--max-warnings`
+escape hatch, and adding one would make the lint step decorative.
 
 ## Maintaining this file
 

@@ -42,7 +42,8 @@ export type DealtHand = { hand: CardType[]; token: string };
 
 const holdKey = (token: string) => `pf:hold:${token}`;
 
-const drawHand = (): CardType[] => createTarotDeck().slice(0, 5);
+/** Exported so `test/deck.test.ts` pins the real deal, not a copy of it. */
+export const drawHand = (): CardType[] => createTarotDeck().slice(0, 5);
 
 /**
  * Contained, not ignored: the visitor's experience never depends on these, but
