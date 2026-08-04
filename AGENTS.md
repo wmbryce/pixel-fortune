@@ -130,6 +130,43 @@ typewriter's scroll box both distort under a scale, and the strip it grows
 inside is reserved, so that layout costs nothing else on the page. Decided in
 #16.
 
+## Every control is a real control, and "any key" is not one
+
+The arc is completable by keyboard alone: welcome, draw, five reveals, four
+pages of reading, reset. Four rules hold it up, and each replaced something that
+looked convenient and was a wall (#18).
+
+- **A card is a `<button>`.** It was a `div` with `onClick`. The keyboard
+  reaches the #13 flip through the browser's own Enter/Space-to-click, so there
+  is exactly one activation path; nothing hand-binds keys to it. A revealed
+  card stays enabled rather than becoming `disabled` — disabling the card that
+  holds focus strands it.
+- **`isAnyKeyPress` (`_libs/keys.ts`) is what the window listeners answer.**
+  Both `Welcome` and `DialogBox` bind `keydown` on the window, which is the
+  point of "press any key" — but Tab is how you reach those card buttons, and
+  answering it advanced the flow out from under the visitor and refused at the
+  reveal prompt on every step between cards. Navigation keys and shortcut
+  combos are out; every other key still counts, focused or not. `DialogBox`
+  additionally ignores Enter/Space aimed at any button, because the browser
+  already answers those with a click of the button's own.
+- **A face-down card must not name itself.** Both faces are mounted from the
+  first frame, so the front's `alt` used to read out a card nobody had turned,
+  and the caption sits at `opacity: 0` rather than out of the tree. Both faces
+  are `alt=""` and the caption is `aria-hidden`; the button's `aria-label` is
+  the single answer, and it changes when the card turns.
+- **The reading is announced a paragraph at a time.** The live region is in
+  `DialogBox`, outside the page-keyed `TypingText`, because a region has to
+  exist before its content changes to be announced. `TypingText`'s visible
+  paragraph is `aria-hidden`: a live region over the text a typewriter is
+  building announces a character at a time, which is noise. The consequence is
+  deliberate — a screen reader hears the paragraph in full while the typewriter
+  is on its first characters, and is not made to wait 13s for the button.
+
+`DialogBox` also gives focus back to its button when it remounts after a page
+types, but only from `<body>` — a visitor who has tabbed off into the spread
+must not be pulled out of it. `test/keyboard-access.test.tsx` pins all of this;
+`test/card-reveal.test.tsx` pins the card's half.
+
 ## The card reveal is a flip, so both faces are always mounted
 
 `Card.tsx` turns the card on `rotateY` (back at 0deg, front at 180deg) with
@@ -153,6 +190,10 @@ spring rather than disabling the animation — the card stops turning but the ba
 still fades off it, the deal keeps its beat but each card fades up in its seat,
 and hover and press dim instead of lifting. A blanket disable is the failure
 mode `test/reduced-motion.test.tsx` exists to catch. Decided in #15.
+
+`TypingText` is the fifth reader, added by #18: the reduced form of a typewriter
+is the text. There is no travel to cross-fade, and a box that scrolls itself for
+thirteen seconds is the auto-updating motion the preference opts out of.
 
 A reduced variant must restate every key its full-motion twin can put on screen.
 `useReducedMotion()` is false on the server, so every document ships the
@@ -270,9 +311,10 @@ Prettier runs first, and the eslint baseline is **clean** — any finding is
 something your change broke. The one long-standing exception, an
 `@typescript-eslint/no-explicit-any` on `shuffleArray(array: any[])`, was
 carried on the assumption that issue #18 (Accessibility pass) would land the
-fix; #18 closed without a PR, so #33 made the function generic instead. Don't
-reintroduce a baseline: eslint has no suppression and no `--max-warnings`
-escape hatch, and adding one would make the lint step decorative.
+fix; #33 landed first and made the function generic instead, and #18's PR
+followed. Don't reintroduce a baseline: eslint has no suppression and no
+`--max-warnings` escape hatch, and adding one would make the lint step
+decorative.
 
 ## Maintaining this file
 
