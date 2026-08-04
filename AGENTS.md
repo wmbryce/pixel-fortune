@@ -266,12 +266,13 @@ reformats the repo differently on the next machine, which is worse than none.
 `npm run format` fixes. Keep any reformat in its own commit; mixed with real
 changes it is unreviewable.
 
-Prettier runs first because eslint still exits non-zero on a baseline of
-exactly **1** problem — the `@typescript-eslint/no-explicit-any` on
-`shuffleArray(array: any[])` in `src/server/handlers/deck.ts`, which is
-owned by issue #18 (Accessibility pass). A red `npm run lint` that
-reports that one finding is expected, not something your change broke; a second
-finding is.
+Prettier runs first, and the eslint baseline is **clean** — any finding is
+something your change broke. The one long-standing exception, an
+`@typescript-eslint/no-explicit-any` on `shuffleArray(array: any[])`, was
+carried on the assumption that issue #18 (Accessibility pass) would land the
+fix; #18 closed without a PR, so #33 made the function generic instead. Don't
+reintroduce a baseline: eslint has no suppression and no `--max-warnings`
+escape hatch, and adding one would make the lint step decorative.
 
 ## Maintaining this file
 

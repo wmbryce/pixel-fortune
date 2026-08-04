@@ -25,7 +25,7 @@ export const cardsByIds = (ids: number[]): CardType[] | null => {
  * pinned by `test/deck.test.ts`. `createTarotDeck` copies `TarotDeck` before
  * calling it; any other caller must do the same or lose its original order.
  */
-export function shuffleArray(array: any[]) {
+export function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
     // Generate a random index between 0 and i (inclusive)
     const j = Math.floor(Math.random() * (i + 1));
