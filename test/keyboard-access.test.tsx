@@ -73,16 +73,35 @@ const tick = async (ms: number) => {
 const button = () => document.getElementById('dialogButton');
 const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
 const live = () => document.querySelector('p[aria-live="polite"]');
+const alert = () => document.querySelector('p[role="alert"]');
+
+/** Every key whose whole purpose is moving, rather than doing. */
+const NAVIGATION = [
+  'Tab',
+  'Shift',
+  'Escape',
+  'Meta',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+];
 
 describe('isAnyKeyPress', () => {
   it('answers an ordinary key', () => {
     expect(isAnyKeyPress({ key: 'x' } as KeyboardEvent)).toBe(true);
     expect(isAnyKeyPress({ key: 'Enter' } as KeyboardEvent)).toBe(true);
-    expect(isAnyKeyPress({ key: 'ArrowDown' } as KeyboardEvent)).toBe(true);
+    // Space is a "press any key" in its own right; the Enter/Space-on-a-button
+    // guard is what keeps it from stepping twice when a control holds focus.
+    expect(isAnyKeyPress({ key: ' ' } as KeyboardEvent)).toBe(true);
   });
 
   it('leaves the keys a visitor navigates with alone', () => {
-    for (const key of ['Tab', 'Shift', 'Escape', 'Meta'])
+    for (const key of NAVIGATION)
       expect(isAnyKeyPress({ key } as KeyboardEvent)).toBe(false);
     expect(isAnyKeyPress({ key: 'r', metaKey: true } as KeyboardEvent)).toBe(
       false
@@ -100,6 +119,24 @@ describe('DialogBox, driven by keyboard', () => {
         onReset={() => {}}
       />
     );
+
+  const keyPress = async () => {
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Enter' });
+    });
+  };
+
+  /**
+   * Stand at the reveal prompt with the page fully on screen and no card
+   * turned — the one scene where an advance is refused.
+   */
+  const reachReveal = async () => {
+    await tick(1200);
+    await keyPress(); // skip the greeting's typewriter
+    await keyPress(); // Draw Hand
+    await tick(2400); // the reveal beat, and the reading landing
+    await keyPress(); // skip the reveal prompt's typewriter
+  };
 
   /**
    * The barrier this ticket exists for. Tabbing from card to card fired the
@@ -119,6 +156,62 @@ describe('DialogBox, driven by keyboard', () => {
 
     expect(body()).toBe(before);
     expect(document.body.textContent).not.toContain(BLOCKED_MESSAGE);
+  });
+
+  /**
+   * The same barrier reached by a different key. The spread can stand taller
+   * than the stage, so on a short viewport scrolling is the only way to see the
+   * cards — and with focus on `<body>`, every scroll used to be read as an
+   * advance and refused at the reveal prompt.
+   */
+  it('does not advance on the keys that scroll the page to the cards', async () => {
+    mount();
+    await reachReveal();
+    const before = body();
+
+    await act(async () => {
+      for (const key of NAVIGATION) fireEvent.keyDown(window, { key });
+    });
+
+    expect(body()).toBe(before);
+    expect(alert()).toBeNull();
+    expect(document.body.textContent).not.toContain(BLOCKED_MESSAGE);
+  });
+
+  /**
+   * The refusal is one message, so a repeat is identical text in an element
+   * that never left the document — React writes nothing and no assistive path
+   * fires. Keying it on the machine's nonce makes each refusal a fresh node.
+   */
+  it('announces every refused advance, not only the first', async () => {
+    mount();
+    await reachReveal();
+
+    await keyPress();
+    const first = alert();
+    expect(first?.textContent).toBe(BLOCKED_MESSAGE);
+
+    await keyPress();
+    const second = alert();
+    expect(second?.textContent).toBe(BLOCKED_MESSAGE);
+    expect(second).not.toBe(first);
+  });
+
+  /**
+   * Handing focus back is the whole of the job. `<body>` is also what holds
+   * focus on first arrival, and taking it there cuts off the greeting the live
+   * region is still announcing.
+   */
+  it('does not take focus on first arrival, while the greeting is announced', async () => {
+    mount();
+    await tick(1200);
+    expect(live()?.textContent).toContain('Welcome to Pixel Fortune');
+
+    // The greeting types itself out in full; nobody has pressed anything.
+    await tick(30_000);
+
+    expect(button()).not.toBeNull();
+    expect(document.activeElement).toBe(document.body);
   });
 
   /** Enter on a card is the card's flip, not a step of the dialog. */
@@ -142,16 +235,18 @@ describe('DialogBox, driven by keyboard', () => {
   });
 
   /**
-   * The button is unmounted while a page types and mounted again after, so
-   * every press dropped focus to `<body>` and a keyboard visitor had to tab
-   * back in at each paragraph.
+   * The other half of the gate, and the twin of the case above: the same mount
+   * from the same `<body>`, differing only in the visitor having pressed. The
+   * button is unmounted while a page types and mounted again after, so every
+   * press dropped focus to `<body>` and a keyboard visitor had to tab back in
+   * at each paragraph.
    */
-  it('hands focus back to the control when it reappears', async () => {
+  it('hands focus back to the control once the visitor has pressed it', async () => {
     mount();
     await tick(1200);
-    await act(async () => {
-      fireEvent.keyDown(window, { key: 'Enter' });
-    });
+    expect(button()).toBeNull();
+
+    await keyPress();
     expect(document.activeElement).toBe(button());
   });
 

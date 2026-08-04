@@ -145,10 +145,14 @@ looked convenient and was a wall (#18).
   Both `Welcome` and `DialogBox` bind `keydown` on the window, which is the
   point of "press any key" — but Tab is how you reach those card buttons, and
   answering it advanced the flow out from under the visitor and refused at the
-  reveal prompt on every step between cards. Navigation keys and shortcut
-  combos are out; every other key still counts, focused or not. `DialogBox`
-  additionally ignores Enter/Space aimed at any button, because the browser
-  already answers those with a click of the button's own.
+  reveal prompt on every step between cards. The rule is that a key whose whole
+  purpose is navigation is never an activation, and it covers moving the
+  viewport as well as moving focus: the arrows, PageUp/PageDown and Home/End
+  are out too, because a spread taller than the stage is scrolled to and every
+  scroll was read as an advance. Space stays in — it is a real "press any key".
+  Shortcut combos are out; every other key still counts, focused or not.
+  `DialogBox` additionally ignores Enter/Space aimed at any button, because the
+  browser already answers those with a click of the button's own.
 - **A face-down card must not name itself.** Both faces are mounted from the
   first frame, so the front's `alt` used to read out a card nobody had turned,
   and the caption sits at `opacity: 0` rather than out of the tree. Both faces
@@ -163,9 +167,15 @@ looked convenient and was a wall (#18).
   is on its first characters, and is not made to wait 13s for the button.
 
 `DialogBox` also gives focus back to its button when it remounts after a page
-types, but only from `<body>` — a visitor who has tabbed off into the spread
-must not be pulled out of it. `test/keyboard-access.test.tsx` pins all of this;
-`test/card-reveal.test.tsx` pins the card's half.
+types, but only from `<body>` and only once the visitor has pressed it at least
+once. The `<body>` guard is what keeps a visitor who has tabbed off into the
+spread from being pulled out of it; the pressed-once ref is what keeps the
+first arrival from being a focus grab, since nothing is focused then either and
+a focus move cuts off the greeting the live region is still announcing. The
+refusal is rendered `key={refusal.nonce}` so each refused advance is a fresh
+node: it is one fixed message, and an alert whose text does not change is
+announced only the first time. `test/keyboard-access.test.tsx` pins all of
+this; `test/card-reveal.test.tsx` pins the card's half.
 
 ## The card reveal is a flip, so both faces are always mounted
 

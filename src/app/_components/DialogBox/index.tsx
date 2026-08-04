@@ -116,10 +116,11 @@ export default function DialogBox({
     return () => controls.stop();
   }, [refusal, reduced, shakeX]);
 
-  const press = useCallback(
-    () => dispatch({ type: 'advance', allRevealed }),
-    [allRevealed]
-  );
+  const activated = useRef(false);
+  const press = useCallback(() => {
+    activated.current = true;
+    dispatch({ type: 'advance', allRevealed });
+  }, [allRevealed]);
   const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
   // "Press any key to continue", so this is on the window rather than on the
@@ -147,9 +148,16 @@ export default function DialogBox({
    * visitor would have to tab back in at each paragraph. Give it back, but only
    * from `<body>`: if the visitor has tabbed off to a card, the reveal prompt
    * finishing its 13 seconds of typing must not pull them out of the spread.
+   *
+   * Handing it *back* is the whole of the job, so the first arrival is
+   * deliberately excluded — `<body>` is also what holds focus when nobody has
+   * touched anything yet. The live region fires the greeting whole about a
+   * second in, and a focus move mid-announcement cuts off the one thing telling
+   * the visitor where they are. `activated` is a ref rather than state because
+   * remembering this must not re-render the box.
    */
   const keepFocus = useCallback((node: HTMLButtonElement | null) => {
-    if (node && document.activeElement === document.body)
+    if (node && activated.current && document.activeElement === document.body)
       node.focus({ preventScroll: true });
   }, []);
 
@@ -260,7 +268,14 @@ export default function DialogBox({
               transition={reduced ? CROSSFADE : SPRING.snap}
             >
               {refusal && (
-                <p role="alert" className="font-sans mr-4 text-brown_03">
+                // Keyed on the nonce so a second refusal replaces the node
+                // rather than rewriting nothing: the message is the same every
+                // time, and an alert that does not change is never announced.
+                <p
+                  key={refusal.nonce}
+                  role="alert"
+                  className="font-sans mr-4 text-brown_03"
+                >
                   {refusal.message}
                 </p>
               )}
