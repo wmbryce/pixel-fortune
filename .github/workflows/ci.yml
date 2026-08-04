@@ -1,0 +1,41 @@
+# Every check the repo has, on every push and PR.
+#
+# The build runs here on purpose: it is the one check too heavy for the
+# development machine, and CI is where it is affordable.
+#
+# Steps carry `if: !cancelled()` so a red lint still reports typecheck, test and
+# build rather than masking them — the job is red either way.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # ci, not install: the lockfile is authoritative.
+      - run: npm ci
+
+      - run: npm run lint
+
+      - if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - if: ${{ !cancelled() }}
+        run: npm test
+
+      - if: ${{ !cancelled() }}
+        run: npm run build

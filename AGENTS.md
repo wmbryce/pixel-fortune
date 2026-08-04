@@ -239,10 +239,20 @@ The outer bound is Next.js: `npm run build` fails on TS 7 with "TypeScript 7.x d
 not provide the compiler API required by Next.js", even though `tsc --noEmit` is
 clean. Don't bump to `latest`.
 
-## Tests
+## Tests, and what CI runs
 
 `npm test` (vitest + jsdom, config in `vitest.config.mts`, specs in `test/`).
 Component specs mock `src/app/_trpc/client` rather than standing up tRPC.
+
+`.github/workflows/ci.yml` runs lint, typecheck, test and build on every push
+and PR, on the Node in `.nvmrc` with `npm ci`. **The build belongs on CI, not on
+your machine** — it is the one check the development box cannot afford, which is
+why every step after lint carries `if: !cancelled()`: a red lint must not mask
+the other three.
+
+`shuffleArray` (`src/server/handlers/deck.ts`) shuffles in place _and_ returns
+the same array. Kept dual and pinned by `test/deck.test.ts`; `createTarotDeck`
+copies `TarotDeck` before calling it, and any new caller must do the same.
 
 ## Formatting is enforced, and prettier is pinned
 
@@ -255,7 +265,7 @@ changes it is unreviewable.
 Prettier runs first because eslint still exits non-zero on a baseline of
 exactly **1** problem — the `@typescript-eslint/no-explicit-any` on
 `shuffleArray(array: any[])` in `src/server/handlers/deck.ts`, which is
-intentional and owned by issue #19 (Tests and CI). A red `npm run lint` that
+owned by issue #18 (Accessibility pass). A red `npm run lint` that
 reports that one finding is expected, not something your change broke; a second
 finding is.
 
