@@ -37,8 +37,15 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
    * The one animated surface #15 did not reach. The reduced form of a
    * typewriter is the text: there is no travel to cross-fade, and a page that
    * scrolls itself for thirteen seconds is exactly the auto-updating motion the
-   * preference is set to opt out of. The reveal is not lost — the paragraph is
-   * still what arrives, and the beat before it is still a beat.
+   * preference is set to opt out of.
+   *
+   * The lead-in goes with the typing, in full. `delay` is spent by the effect
+   * below on the first character, and `instant` returns before that effect does
+   * anything at all — so a page paints whole and reports done in the same
+   * commit, with no pause in front of it. That is correct rather than merely
+   * tolerable: a lead-in is the pause before an animation starts, and there is
+   * no longer an animation for it to precede. What is lost is the beat, not the
+   * paragraph.
    */
   const instant = (useReducedMotion() ?? false) || skip;
 

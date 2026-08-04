@@ -133,7 +133,7 @@ inside is reserved, so that layout costs nothing else on the page. Decided in
 ## Every control is a real control, and "any key" is not one
 
 The arc is completable by keyboard alone: welcome, draw, five reveals, four
-pages of reading, reset. Four rules hold it up, and each replaced something that
+pages of reading, reset. Five rules hold it up, and each replaced something that
 looked convenient and was a wall (#18).
 
 - **A card is a `<button>`.** It was a `div` with `onClick`. The keyboard
@@ -145,14 +145,20 @@ looked convenient and was a wall (#18).
   Both `Welcome` and `DialogBox` bind `keydown` on the window, which is the
   point of "press any key" — but Tab is how you reach those card buttons, and
   answering it advanced the flow out from under the visitor and refused at the
-  reveal prompt on every step between cards. The rule is that a key whose whole
-  purpose is navigation is never an activation, and it covers moving the
-  viewport as well as moving focus: the arrows, PageUp/PageDown and Home/End
-  are out too, because a spread taller than the stage is scrolled to and every
-  scroll was read as an advance. Space stays in — it is a real "press any key".
-  Shortcut combos are out; every other key still counts, focused or not.
-  `DialogBox` additionally ignores Enter/Space aimed at any button, because the
-  browser already answers those with a click of the button's own.
+  reveal prompt on every step between cards. The rule is that a key whose
+  purpose _in the focus context it arrives in_ is navigation is never an
+  activation, and that covers moving the viewport as well as moving focus: the
+  arrows, PageUp/PageDown and Home/End are out too, because a spread taller
+  than the stage is scrolled to and every scroll was read as an advance. Space
+  is the one key the focus context splits, so it is split rather than kept or
+  dropped whole: from `<body>` — the only context this filter ever sees — it is
+  the page's scroll key and is out, while on a focused control it still
+  activates, because the browser synthesises a click there and the click is
+  what reaches the dialog. Enter is not a scroll key at `<body>` level, so
+  Enter stays ambient. Shortcut combos are out; every other key still counts,
+  focused or not. `DialogBox` additionally ignores Enter/Space aimed at any
+  button, because the browser already answers those with a click of the
+  button's own.
 - **A face-down card must not name itself.** Both faces are mounted from the
   first frame, so the front's `alt` used to read out a card nobody had turned,
   and the caption sits at `opacity: 0` rather than out of the tree. Both faces
@@ -165,6 +171,16 @@ looked convenient and was a wall (#18).
   building announces a character at a time, which is noise. The consequence is
   deliberate — a screen reader hears the paragraph in full while the typewriter
   is on its first characters, and is not made to wait 13s for the button.
+- **A press the machine declines is still a press.** At the reveal prompt with
+  every card turned and the reading still coming, `advance` returns the
+  identical state — no move, no refusal, nothing to re-render — and the button
+  then flips `loading` → `Continue` on its own. `DialogBox` carries a second
+  polite region for that, holding status and never the reading: it acknowledges
+  the press and announces the moment the control becomes pressable. It is
+  presentation, a string with a nonce so a repeat is a fresh node, never dialog
+  state and never a new event — `machine.ts` is right that neither is a move.
+  `DialogButton` carries `aria-busy` while it waits, which is also why it is
+  never `disabled`.
 
 `DialogBox` also gives focus back to its button when it remounts after a page
 types, but only from `<body>` and only once the visitor has pressed it at least
@@ -175,7 +191,10 @@ a focus move cuts off the greeting the live region is still announcing. The
 refusal is rendered `key={refusal.nonce}` so each refused advance is a fresh
 node: it is one fixed message, and an alert whose text does not change is
 announced only the first time. `test/keyboard-access.test.tsx` pins all of
-this; `test/card-reveal.test.tsx` pins the card's half.
+this; `test/card-reveal.test.tsx` pins the card's half, and
+`test/welcome-access.test.tsx` pins the welcome screen's — the ambient keys it
+must not answer, the tap it must, the `touchstart` it must not cancel, and the
+hint being a real control named by its own copy.
 
 ## The card reveal is a flip, so both faces are always mounted
 
@@ -203,7 +222,11 @@ mode `test/reduced-motion.test.tsx` exists to catch. Decided in #15.
 
 `TypingText` is the fifth reader, added by #18: the reduced form of a typewriter
 is the text. There is no travel to cross-fade, and a box that scrolls itself for
-thirteen seconds is the auto-updating motion the preference opts out of.
+thirteen seconds is the auto-updating motion the preference opts out of. It is
+the one reader that does not substitute anything — the page's lead-in goes with
+the typing, so a page paints whole and reports done in the same commit. A
+lead-in is the pause before an animation, and there is no animation left for it
+to precede.
 
 A reduced variant must restate every key its full-motion twin can put on screen.
 `useReducedMotion()` is false on the server, so every document ships the

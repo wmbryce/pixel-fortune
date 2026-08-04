@@ -27,6 +27,10 @@ export const DialogButton = ({
     className="bg-brown_01 h-[50px] w-[200px] p-2 text-brown_02 rounded-md font-sans hover:opacity-80 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brown_03"
     onClick={onClick}
     disabled={disabled}
+    // The control stays focusable and pressable while it waits — disabling it
+    // would strand the focus it is holding — so this is what says the press has
+    // nothing to act on yet. `DialogBox` announces the moment it clears.
+    aria-busy={loading}
   >
     {loading ? 'loading' : children}
   </button>

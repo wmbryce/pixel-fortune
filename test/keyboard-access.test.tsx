@@ -18,11 +18,14 @@ import { CardType } from '@/types';
 
 const READING = ['Past.', 'Present.', 'Future.'].join('\n\n');
 
+/** How long the reading takes to land, so a spec can stand inside the wait. */
+const server = vi.hoisted(() => ({ delay: 0 }));
+
 vi.mock('../src/app/_trpc/client', () => ({
   trpc: {
     getFortune: {
       useMutation: (opts: { onSettled: (data: unknown) => void }) => ({
-        mutate: () => setTimeout(() => opts.onSettled(READING), 0),
+        mutate: () => setTimeout(() => opts.onSettled(READING), server.delay),
       }),
     },
   },
@@ -32,7 +35,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
 }));
 
-import DialogBox from '@/app/_components/DialogBox';
+import DialogBox, {
+  READY_MESSAGE,
+  WAITING_MESSAGE,
+} from '@/app/_components/DialogBox';
 import CardTable from '@/app/_components/CardTable';
 
 const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
@@ -42,6 +48,7 @@ const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
 }));
 
 beforeEach(() => {
+  server.delay = 0;
   vi.useFakeTimers();
   vi.stubGlobal(
     'ResizeObserver',
@@ -74,8 +81,15 @@ const button = () => document.getElementById('dialogButton');
 const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
 const live = () => document.querySelector('p[aria-live="polite"]');
 const alert = () => document.querySelector('p[role="alert"]');
+const status = () => document.querySelector('p[role="status"]');
 
-/** Every key whose whole purpose is moving, rather than doing. */
+/**
+ * Every key that moves rather than does, in the only context this filter ever
+ * sees: a window listener, with `<body>` holding focus. Space is here because
+ * from `<body>` it is the page's scroll key and nothing else — on a focused
+ * control it is still an activation, and the browser's own synthesised click is
+ * what carries it there.
+ */
 const NAVIGATION = [
   'Tab',
   'Shift',
@@ -89,15 +103,14 @@ const NAVIGATION = [
   'PageDown',
   'Home',
   'End',
+  ' ',
 ];
 
 describe('isAnyKeyPress', () => {
   it('answers an ordinary key', () => {
     expect(isAnyKeyPress({ key: 'x' } as KeyboardEvent)).toBe(true);
+    // Enter is not a scroll key at `<body>` level, so it stays ambient.
     expect(isAnyKeyPress({ key: 'Enter' } as KeyboardEvent)).toBe(true);
-    // Space is a "press any key" in its own right; the Enter/Space-on-a-button
-    // guard is what keeps it from stepping twice when a control holds focus.
-    expect(isAnyKeyPress({ key: ' ' } as KeyboardEvent)).toBe(true);
   });
 
   it('leaves the keys a visitor navigates with alone', () => {
@@ -110,11 +123,11 @@ describe('isAnyKeyPress', () => {
 });
 
 describe('DialogBox, driven by keyboard', () => {
-  const mount = () =>
+  const mount = (allRevealed = false) =>
     render(
       <DialogBox
         readingToken="t"
-        allRevealed={false}
+        allRevealed={allRevealed}
         onDraw={() => {}}
         onReset={() => {}}
       />
@@ -232,6 +245,65 @@ describe('DialogBox, driven by keyboard', () => {
 
     expect(body()).toBe(seen);
     card.remove();
+  });
+
+  /**
+   * Space is split by focus context rather than kept or dropped whole. From
+   * `<body>` — which is the only context this window listener ever sees — it is
+   * the page's scroll key, the same failure the arrows and PageDown close, and
+   * the ambient path must not answer it. On a focused control it is unchanged,
+   * because the browser answers it with a click of the button's own and that
+   * click is what reaches the dialog. jsdom synthesises no such click, so the
+   * click itself is what stands in for it here.
+   */
+  it('leaves Space to scroll the page, and still answers the focused control', async () => {
+    mount();
+    await tick(1200);
+    await keyPress(); // fill the greeting in, so the control is on screen
+    const greeting = body();
+    expect(greeting).not.toBe('');
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: ' ' });
+    });
+    expect(body()).toBe(greeting);
+
+    await act(async () => {
+      button()?.click();
+    });
+    // One step, and only one: the greeting has left and the hand is being dealt.
+    expect(body()).toBe('');
+  });
+
+  /**
+   * The reveal prompt with every card turned and the reading still coming is
+   * the one press the machine neither takes nor refuses: it returns the
+   * identical state, so nothing re-renders and nothing is said, and the button
+   * goes from `loading` to `Continue` on its own some seconds later with no
+   * announcement either. Both halves belong to the component — the machine is
+   * right that neither is a move — so both are said from a polite region that
+   * carries status and never the reading.
+   */
+  it('says the reading is still coming, and says when it lands', async () => {
+    server.delay = 10_000;
+    mount(true);
+    await tick(1200);
+    await keyPress(); // fill the greeting in
+    await keyPress(); // Draw Hand
+    await tick(2400); // the reveal beat; the reading is still in flight
+    await keyPress(); // fill the reveal prompt in
+
+    expect(button()?.getAttribute('aria-busy')).toBe('true');
+    expect(status()?.textContent).toBe('');
+
+    await keyPress();
+    expect(status()?.textContent).toBe(WAITING_MESSAGE);
+    // Nothing was refused — the cards are all turned. This is a wait, not a no.
+    expect(alert()).toBeNull();
+
+    await tick(10_000);
+    expect(status()?.textContent).toBe(READY_MESSAGE);
+    expect(button()?.getAttribute('aria-busy')).toBe('false');
   });
 
   /**
