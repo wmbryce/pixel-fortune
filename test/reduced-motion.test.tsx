@@ -27,6 +27,7 @@ vi.stubGlobal('matchMedia', (query: string) =>
 
 import Card from '@/app/_components/Card';
 import CardTable from '@/app/_components/CardTable';
+import TypingText from '@/app/_components/TypingText';
 
 const DATA: CardType = {
   id: 0,
@@ -126,6 +127,31 @@ describe('Card under prefers-reduced-motion', () => {
       expect(flipper().style.opacity).toBe(String(DIM.hover))
     );
     expect(flipper().style.transform ?? '').not.toMatch(/translateY\(-[\d.]/);
+  });
+});
+
+/**
+ * The surface #15 did not reach, added by #18. The typewriter is the app's one
+ * remaining piece of unopted-out motion: a page that scrolls its own box for
+ * thirteen seconds. Its reduced form is the text — nothing is lost, because the
+ * paragraph was always the content and the typing was always the theatre.
+ */
+describe('TypingText under prefers-reduced-motion', () => {
+  it('puts the page on screen rather than typing it', async () => {
+    const done = vi.fn();
+    render(
+      <TypingText
+        text="A whole paragraph."
+        delay={1600}
+        skip={false}
+        onDone={done}
+      />
+    );
+
+    expect(document.querySelector('p.font-pixel')?.textContent).toBe(
+      'A whole paragraph.'
+    );
+    await vi.waitFor(() => expect(done).toHaveBeenCalledTimes(1));
   });
 });
 

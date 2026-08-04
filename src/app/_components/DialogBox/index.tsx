@@ -12,6 +12,7 @@ import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
 import TypingText from '../TypingText';
 import { usePageLeave } from '../PageTransition';
+import { isAnyKeyPress } from '../../_libs/keys';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
 import {
   INITIAL,
@@ -124,9 +125,12 @@ export default function DialogBox({
   // "Press any key to continue", so this is on the window rather than on the
   // control — but a focused button already answers Enter and Space with a click
   // of its own, so answering those two here as well would step the dialog
-  // twice. Every other key is still the "press any key" path, focus or not.
+  // twice. That guard now covers the cards too, which are buttons of their own.
+  // `isAnyKeyPress` takes out the rest: Tab reaches those cards, and answering
+  // it here refused the advance and shook the box on every step between them.
   const anyKey = useCallback(
     (event: KeyboardEvent) => {
+      if (!isAnyKeyPress(event)) return;
       if (
         event.target instanceof HTMLButtonElement &&
         (event.key === 'Enter' || event.key === ' ')
@@ -136,6 +140,18 @@ export default function DialogBox({
     },
     [press]
   );
+
+  /**
+   * The button is unmounted while a page types and mounted again when it is
+   * done, so pressing it drops focus to `<body>` every time — a keyboard
+   * visitor would have to tab back in at each paragraph. Give it back, but only
+   * from `<body>`: if the visitor has tabbed off to a card, the reveal prompt
+   * finishing its 13 seconds of typing must not pull them out of the spread.
+   */
+  const keepFocus = useCallback((node: HTMLButtonElement | null) => {
+    if (node && document.activeElement === document.body)
+      node.focus({ preventScroll: true });
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', anyKey);
@@ -189,6 +205,29 @@ export default function DialogBox({
       style={{ x: shakeX }}
       className="relative flex flex-col flex-1 w-[100%] items-center opacity-[90%]"
     >
+      {/*
+        The reading, one announcement per page.
+
+        The granularity is the whole paragraph, deliberately. A live region on
+        the text the typewriter is building announces a character at a time —
+        thirty times a second of "T", "Th", "The" — which is noise, not access.
+        A region on the *page* fires once, when the box turns to a new
+        paragraph, and says the whole of it; the typed copy is `aria-hidden`, so
+        it is said once rather than twice. `aria-atomic` because a paragraph is
+        one utterance and half of it is not worth hearing.
+
+        It sits outside the keyed `TypingText` on purpose: a live region has to
+        be in the document *before* its content changes to be announced, and
+        that one is torn down and rebuilt at every page.
+
+        The consequence is that a screen reader hears the paragraph in full
+        while the typewriter is still on its first characters. That is the right
+        way round — the reading is the content, the typing is the theatre — and
+        the visitor is not made to wait 13 seconds for a button.
+      */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {page?.body ?? ''}
+      </p>
       <motion.div
         className="flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
         variants={dialogVariants}
@@ -221,12 +260,13 @@ export default function DialogBox({
               transition={reduced ? CROSSFADE : SPRING.snap}
             >
               {refusal && (
-                <p className="font-sans mr-4 text-brown_03">
+                <p role="alert" className="font-sans mr-4 text-brown_03">
                   {refusal.message}
                 </p>
               )}
               <DialogButton
                 id="dialogButton"
+                ref={keepFocus}
                 onClick={press}
                 loading={
                   scene.name === 'reveal' && state.reading.status !== 'ready'

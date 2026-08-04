@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 
 /** 30ms a character, the pace the reading has always been paced at. */
 const TYPING_MS = 30;
@@ -32,18 +33,26 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
   const [source, setSource] = useState(text);
   const [count, setCount] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
+  /**
+   * The one animated surface #15 did not reach. The reduced form of a
+   * typewriter is the text: there is no travel to cross-fade, and a page that
+   * scrolls itself for thirteen seconds is exactly the auto-updating motion the
+   * preference is set to opt out of. The reveal is not lost — the paragraph is
+   * still what arrives, and the beat before it is still a beat.
+   */
+  const instant = (useReducedMotion() ?? false) || skip;
 
   // Adjusted during render rather than in an effect, so a new page never paints
   // a frame of the previous page's progress measured against it.
   if (source !== text) {
     setSource(text);
-    setCount(0);
-  } else if (skip && count !== text.length) {
+    setCount(instant ? text.length : 0);
+  } else if (instant && count !== text.length) {
     setCount(text.length);
   }
 
   useEffect(() => {
-    if (skip) return;
+    if (instant) return;
     let live = true;
     let timer: ReturnType<typeof setTimeout>;
     const step = (n: number) => {
@@ -62,7 +71,7 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
       live = false;
       clearTimeout(timer);
     };
-  }, [text, delay, skip]);
+  }, [text, delay, instant]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -82,7 +91,10 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
 
   return (
     <div ref={scroller} className="flex px-8 pt-8 pb-16 overflow-y-auto">
-      <p className="inline-block font-pixel text-base pb-16">
+      {/* The theatre, not the content: a screen reader following this would
+          hear a character at a time. `DialogBox` announces the whole page
+          once, from a live region that outlives this one. */}
+      <p aria-hidden="true" className="inline-block font-pixel text-base pb-16">
         {text.slice(0, count)}
       </p>
     </div>
