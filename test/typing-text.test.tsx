@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { render, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import TypingText from '@/app/_components/TypingText';
+import { reloadSettings, updateSettings } from '@/app/_libs/settings';
 
 /** Longer than the old ceiling, and longer than any paragraph the prompt asks for. */
 const LONG_PAGE = Array.from(
@@ -49,7 +50,11 @@ const runTimers = async (ms: number, slice = 30) => {
 const body = () => document.querySelector('p.font-pixel')?.textContent ?? '';
 const done = () => document.querySelector('[data-testid="done"]')?.textContent;
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  window.localStorage.clear();
+  reloadSettings();
+  vi.useFakeTimers();
+});
 afterEach(() => vi.useRealTimers());
 
 describe('TypingText', () => {
@@ -93,5 +98,58 @@ describe('TypingText', () => {
 
     expect(body()).toBe('Short.');
     expect(done()).toBe('1');
+  });
+
+  /**
+   * The settings modal sits in the tarot header, so a pace change while a page
+   * is typing is a first-class path. A change must pick up where the visitor
+   * is — never collapse the paragraph back to one character, and never spend
+   * the page's lead-in a second time.
+   */
+  it('resumes from the current position on a mid-page speed change', async () => {
+    const TEXT = 'A reading, paced by the visitor, changing pace mid-page.';
+    const onDone = vi.fn();
+    render(
+      <TypingText text={TEXT} delay={1000} skip={false} onDone={onDone} />
+    );
+
+    // Through the lead-in and partway into the page at 30ms a character.
+    await runTimers(1000 + 300);
+    const typed = body().length;
+    expect(typed).toBeGreaterThan(0);
+    expect(typed).toBeLessThan(TEXT.length);
+
+    await act(async () => updateSettings({ textSpeed: 'fast' }));
+    expect(body().length).toBe(typed);
+
+    // 60ms is five characters at the fast pace: a restart from character one
+    // would read shorter than `typed` here, and a re-waited 1000ms lead-in
+    // would read exactly `typed`. Only a resume grows past it.
+    await runTimers(60, 12);
+    expect(body().length).toBeGreaterThan(typed);
+    expect(body()).toBe(TEXT.slice(0, body().length));
+
+    await runTimers((TEXT.length - typed) * 12 + 200, 12);
+    expect(body()).toBe(TEXT);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an instant page painted when speed returns to normal', async () => {
+    updateSettings({ textSpeed: 'instant' });
+    const TEXT = 'A page painted whole, then the setting is put back.';
+    const onDone = vi.fn();
+    render(
+      <TypingText text={TEXT} delay={1000} skip={false} onDone={onDone} />
+    );
+    await act(async () => {});
+    expect(body()).toBe(TEXT);
+    expect(onDone).toHaveBeenCalledTimes(1);
+
+    await act(async () => updateSettings({ textSpeed: 'normal' }));
+    expect(body()).toBe(TEXT);
+
+    await runTimers(2000);
+    expect(body()).toBe(TEXT);
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 });

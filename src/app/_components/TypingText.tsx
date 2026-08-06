@@ -64,6 +64,15 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
     setCount(text.length);
   }
 
+  // Mirrors `count` for the typing effect below, which re-runs when the
+  // settings modal changes the pace or the reduced-motion answer mid-page and
+  // must resume from where the visitor is, not from character one. Declared
+  // before that effect: bodies run in order, so it is current when read.
+  const progress = useRef(0);
+  useEffect(() => {
+    progress.current = count;
+  });
+
   useEffect(() => {
     if (instant) return;
     let live = true;
@@ -79,7 +88,7 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
         n === 1 ? delay : pace
       );
     };
-    step(1);
+    step(progress.current + 1);
     return () => {
       live = false;
       clearTimeout(timer);

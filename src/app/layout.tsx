@@ -9,7 +9,7 @@ import SettingsBridge from './_components/SettingsBridge';
  * reaches the CSS entrance on a full reload; `SettingsBridge` owns it from
  * hydration on. It restates `STORAGE_KEY` and `REDUCE_MOTION_ATTR` from
  * `_libs/settings.ts` — a server component cannot import a client module's
- * constants — and `test/settings.test.ts` pins the restatement.
+ * constants — and `test/settings.test.tsx` pins the restatement.
  */
 const REDUCE_MOTION_BOOT = `try{if(JSON.parse(localStorage.getItem('pf-settings')).reduceMotion)document.documentElement.setAttribute('data-pf-reduce-motion','true')}catch(e){}`;
 

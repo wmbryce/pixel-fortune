@@ -11,7 +11,7 @@
  * post-hydration re-render — never a hydration mismatch. The one surface that
  * cannot wait for hydration, the CSS entrance, is covered by the inline script
  * in `layout.tsx`, which restates `STORAGE_KEY` because a server component
- * cannot import from this client module; `test/settings.test.ts` pins the two
+ * cannot import from this client module; `test/settings.test.tsx` pins the two
  * together.
  */
 import { useSyncExternalStore } from 'react';
