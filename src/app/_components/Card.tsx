@@ -12,6 +12,7 @@ import {
 } from 'motion/react';
 import { useHoverCapable } from '../_libs/media';
 import { useReducedMotionPref } from '../_libs/settings';
+import { useSound } from '../_libs/sound';
 import { CROSSFADE, DIM, SPRING } from '../_libs/motion';
 
 interface Props extends HTMLMotionProps<'div'> {
@@ -46,6 +47,7 @@ export default function Card(props: Props) {
   const { id, data, reveal, width } = props;
   const reduced = useReducedMotionPref();
   const hoverable = useHoverCapable();
+  const sound = useSound();
 
   // The back faces the viewer at 0deg and the front at 180deg, so the card
   // turns back along the axis it came from.
@@ -71,8 +73,13 @@ export default function Card(props: Props) {
     return () => controls.stop();
   }, [reduced, reveal, rotateY, backOpacity]);
 
+  // Guarded on the card being down, so the cue follows the flip exactly: a
+  // revealed card stays enabled (disabling the one holding focus strands it)
+  // and pressing it again turns nothing and says nothing.
   const revealCard = () => {
-    if (!reveal) props.setReveal(props.index);
+    if (reveal) return;
+    sound('reveal');
+    props.setReveal(props.index);
   };
 
   /**

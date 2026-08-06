@@ -209,10 +209,10 @@ hint being a real control named by its own copy.
 ## Settings are a store, and the modals contain their own events
 
 `src/app/_libs/settings.ts` (#3) is a localStorage-backed external store, the
-`media.ts` idiom — no provider. Two settings exist because two things are real
-today: the reduce-motion override and `TypingText`'s pace; #4's sound toggle is
-a new `Settings` key plus a row in `AppMenu`'s panel, nothing structural. Do
-not add a setting nothing consumes. The override reaches CSS through a
+`media.ts` idiom — no provider. Three settings exist because three things are
+real: the reduce-motion override, `TypingText`'s pace, and #4's `sound`, which
+arrived as a key here plus a row in `AppMenu`'s panel and nothing structural.
+Do not add a setting nothing consumes. The override reaches CSS through a
 `data-pf-reduce-motion` attribute on `<html>` — stamped pre-paint by an inline
 script in `layout.tsx` and post-hydration by `SettingsBridge` — and the key and
 attribute are restated in the script and two stylesheets because neither can
@@ -228,6 +228,37 @@ click. Undo that and ticking a checkbox advances the flow underneath.
 `test/modal-access.test.tsx` pins all of it; jsdom has no `<dialog>` methods,
 so `test/setup.ts` installs minimal stand-ins (attribute + `close` event only —
 the trap itself is not simulated).
+
+## Sound is synthesized, opt-in, and three cues
+
+`src/app/_libs/sound.ts` (#4). Nothing is fetched or bundled: every cue is
+oscillators plus an envelope, because a downloaded chime carries licence terms
+and kilobytes for a hundred milliseconds, and square/triangle waves are the
+native voice of the pixel art. Adding a sound file needs a licensing answer
+first. Four invariants, each with a spec in `test/sound.test.tsx`:
+
+- **No `AudioContext` exists until the visitor ticks `sound`.** A first load
+  never touches the Web Audio API at all — which is also why every other spec
+  renders `Card` and `DialogBox` without stubbing one.
+- **A context is only born inside a gesture.** `arm` runs from window
+  `pointerdown`/`keydown` in the capture phase (the modal triggers stop
+  propagation) and from `setSoundFromGesture`, which the settings tick calls
+  because that click _is_ the gesture and `useSoundSync`'s commit is a beat too
+  late. `playCue` refuses anything but a `running` context rather than resuming
+  one — that refusal is what keeps the console free of autoplay warnings.
+- **Reduced motion is silence**, ANDed in by `useSoundSync`. That sync lives in
+  `SettingsBridge` rather than `useSound` so it runs on every screen: ticking
+  reduce-motion on the welcome page has to close the context too.
+- **One context per document, closed when sound is turned off**, and every node
+  a cue makes is disconnected from its own `onended`.
+
+The cues are `reveal` (a card turning, in `Card.revealCard`), `advance` (a page
+of dialog that actually turns) and `arrive` (the reading landing, the one cue
+no hand caused). `DialogBox` runs `dialogReducer` on a copy before dispatching
+and sounds only when the scene or `typed` changed — a refused press has the
+shake, and a cue for a move that did not happen is a lie. `TypingText` is
+deliberately silent: it steps dozens of times a second, and its effect loop is
+not to be touched.
 
 ## The card reveal is a flip, so both faces are always mounted
 

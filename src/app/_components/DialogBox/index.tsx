@@ -9,6 +9,7 @@ import { usePageLeave } from '../PageTransition';
 import { isAnyKeyPress } from '../../_libs/keys';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
 import { useReducedMotionPref } from '../../_libs/settings';
+import { useSound } from '../../_libs/sound';
 import {
   INITIAL,
   REVEAL_BEAT_MS,
@@ -80,6 +81,7 @@ export default function DialogBox({
 }: Props) {
   const [state, dispatch] = useReducer(dialogReducer, INITIAL);
   const reduced = useReducedMotionPref();
+  const sound = useSound();
   const leave = usePageLeave();
   const shakeX = useMotionValue(0);
 
@@ -214,6 +216,17 @@ export default function DialogBox({
     }
   }
 
+  /**
+   * The reading landing, which is the one cue nobody's hand caused: it arrives
+   * while the visitor is still turning cards, and the live region says so in
+   * words at the same moment. The context is running by then — the press that
+   * dealt the hand armed it — so this is not audio before a gesture.
+   */
+  const ready = state.reading.status === 'ready';
+  useEffect(() => {
+    if (ready) sound('arrive');
+  }, [ready, sound]);
+
   const activated = useRef(false);
   const press = useCallback(() => {
     activated.current = true;
@@ -221,8 +234,15 @@ export default function DialogBox({
     // Only once the page is on screen: before that the press fills the page in,
     // which is a press that already landed visibly.
     if (waitingOnReading && allRevealed && state.typed) say(WAITING_MESSAGE);
+    // Ask the machine what this press does before making it — it is pure, so
+    // asking costs nothing and it is the only thing that knows. A cue only for
+    // a press that moved: a refusal changes `refusal` alone and already has the
+    // shake, and an ignored press changes nothing at all.
+    const next = dialogReducer(state, { type: 'advance', allRevealed });
+    if (next.scene !== state.scene || next.typed !== state.typed)
+      sound('advance');
     dispatch({ type: 'advance', allRevealed });
-  }, [allRevealed, waitingOnReading, state.typed, say]);
+  }, [allRevealed, waitingOnReading, state, say, sound]);
   const typed = useCallback(() => dispatch({ type: 'typed' }), []);
 
   // "Press any key to continue", so this is on the window rather than on the
