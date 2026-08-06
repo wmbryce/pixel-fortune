@@ -2,8 +2,8 @@
 /**
  * App-level settings (#3), kept to what the app can honour today: an override
  * that forces the reduced-motion path for a visitor whose OS preference is
- * off, and the typewriter's pace. #4's sound toggle belongs here too — add a
- * key to `Settings` and a control to the settings modal, nothing else moves.
+ * off, the typewriter's pace, and #4's sound toggle — which arrived as this
+ * header said it would, a key here and a row in the settings modal.
  *
  * A module-level external store rather than context, the `media.ts` idiom: it
  * is right in the first committed frame, and no provider has to wrap anything.
@@ -28,11 +28,18 @@ export type Settings = {
   /** ORed with the OS preference — it can only ever reduce further. */
   reduceMotion: boolean;
   textSpeed: TextSpeed;
+  /**
+   * Opt-in, and false is the only safe default: audio a visitor did not ask
+   * for is the worst thing this app could do on a first load. `_libs/sound.ts`
+   * is the only reader, and it silences itself under reduced motion regardless.
+   */
+  sound: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   textSpeed: 'normal',
+  sound: false,
 };
 
 const isTextSpeed = (value: unknown): value is TextSpeed =>
@@ -47,6 +54,7 @@ const sanitize = (raw: unknown): Settings => {
     textSpeed: isTextSpeed(record.textSpeed)
       ? record.textSpeed
       : DEFAULT_SETTINGS.textSpeed,
+    sound: record.sound === true,
   };
 };
 

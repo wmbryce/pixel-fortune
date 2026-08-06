@@ -8,6 +8,7 @@ import {
   useSettings,
   type TextSpeed,
 } from '../_libs/settings';
+import { setSoundFromGesture } from '../_libs/sound';
 
 const SPEED_LABELS: Record<TextSpeed, string> = {
   normal: 'Normal',
@@ -19,14 +20,14 @@ const CONTROL_FOCUS =
   'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brown_03';
 
 /**
- * Both settings are real today: the motion override feeds every reader of
- * `useReducedMotionPref`, and the pace feeds `TypingText`. A sound toggle
- * joins here when #4 gives it something to control — a `Settings` key and a
- * row, nothing structural.
+ * All three settings are real: the motion override feeds every reader of
+ * `useReducedMotionPref`, the pace feeds `TypingText`, and the sound toggle
+ * feeds `_libs/sound.ts`.
  */
 function SettingsPanel() {
   const settings = useSettings();
   const osReduced = useReducedMotion() ?? false;
+  const reduced = osReduced || settings.reduceMotion;
   return (
     <div className="flex flex-col gap-4 text-lg">
       <label className="flex items-center gap-3">
@@ -44,6 +45,28 @@ function SettingsPanel() {
         <p className="text-base">
           Your system already asks for reduced motion, so motion stays reduced
           whatever this is set to.
+        </p>
+      )}
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          className={`h-5 w-5 accent-brown_01 ${CONTROL_FOCUS}`}
+          checked={settings.sound}
+          onChange={event => {
+            const sound = event.target.checked;
+            updateSettings({ sound });
+            // This tick is a user gesture, which is the only moment an
+            // AudioContext may be started. `useSound`'s sync would arrive a
+            // commit too late and the first cue would be dropped.
+            setSoundFromGesture(sound && !reduced);
+          }}
+        />
+        Sound
+      </label>
+      {reduced && settings.sound && (
+        <p className="text-base">
+          Reduced motion keeps the app silent, so sound stays off while it is
+          on.
         </p>
       )}
       <fieldset className="flex flex-col gap-2">

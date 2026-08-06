@@ -30,6 +30,7 @@ function Probe() {
       data-testid="probe"
       data-reduced={String(reduced)}
       data-speed={settings.textSpeed}
+      data-sound={String(settings.sound)}
     />
   );
 }
@@ -39,6 +40,7 @@ const probe = () => {
   return {
     reduced: el?.getAttribute('data-reduced'),
     speed: el?.getAttribute('data-speed'),
+    sound: el?.getAttribute('data-sound'),
   };
 };
 
@@ -50,33 +52,49 @@ beforeEach(() => {
 describe('the settings store', () => {
   it('answers the defaults when nothing is stored', () => {
     render(<Probe />);
-    expect(probe()).toEqual({ reduced: 'false', speed: 'normal' });
+    expect(probe()).toEqual({
+      reduced: 'false',
+      speed: 'normal',
+      sound: 'false',
+    });
   });
 
   it('persists an update and serves it to a fresh read', () => {
     render(<Probe />);
     act(() => updateSettings({ reduceMotion: true, textSpeed: 'fast' }));
-    expect(probe()).toEqual({ reduced: 'true', speed: 'fast' });
+    expect(probe()).toEqual({ reduced: 'true', speed: 'fast', sound: 'false' });
 
     const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!);
-    expect(stored).toEqual({ reduceMotion: true, textSpeed: 'fast' });
+    expect(stored).toEqual({
+      reduceMotion: true,
+      textSpeed: 'fast',
+      sound: false,
+    });
 
     act(() => reloadSettings());
-    expect(probe()).toEqual({ reduced: 'true', speed: 'fast' });
+    expect(probe()).toEqual({ reduced: 'true', speed: 'fast', sound: 'false' });
   });
 
   it('falls back to the defaults on garbage, field by field', () => {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ reduceMotion: 'yes', textSpeed: 'warp', sound: true })
+      JSON.stringify({ reduceMotion: 'yes', textSpeed: 'warp', sound: 'on' })
     );
     reloadSettings();
     render(<Probe />);
-    expect(probe()).toEqual({ reduced: 'false', speed: 'normal' });
+    expect(probe()).toEqual({
+      reduced: 'false',
+      speed: 'normal',
+      sound: 'false',
+    });
 
     window.localStorage.setItem(STORAGE_KEY, 'not json');
     act(() => reloadSettings());
-    expect(probe()).toEqual({ reduced: 'false', speed: 'normal' });
+    expect(probe()).toEqual({
+      reduced: 'false',
+      speed: 'normal',
+      sound: 'false',
+    });
   });
 });
 
@@ -157,6 +175,7 @@ describe('TypingText under the text-speed setting', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       reduceMotion: false,
       textSpeed: 'normal',
+      sound: false,
     });
   });
 });
