@@ -52,6 +52,12 @@
   }
 }
 
+/* The app-level override (`_libs/settings.ts`) loses the blink the same way. */
+:root[data-pf-reduce-motion] .continue-hint {
+  opacity: 1;
+  animation: none;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .only-touch {
     display: inline;

@@ -1,0 +1,18 @@
+/* The native <dialog> is the modal's chassis: `showModal()` puts it in the top
+   layer above every stacking context the page's transforms create, makes the
+   rest of the document inert — which is the focus trap, the browser's own —
+   and answers Escape. The element itself is unstyled chrome; the visible
+   panel inside it carries the dialog-box look. */
+.pf-modal {
+  background: transparent;
+  border: none;
+  padding: 0;
+  max-width: unset;
+  max-height: unset;
+}
+
+/* The table darkens under the modal the way `black_01` darkens everything
+   else. A static veil, so reduced motion needs nothing from it. */
+.pf-modal::backdrop {
+  background: rgb(11 0 18 / 0.75);
+}

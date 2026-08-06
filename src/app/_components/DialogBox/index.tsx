@@ -1,19 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-} from 'motion/react';
+import { AnimatePresence, animate, motion, useMotionValue } from 'motion/react';
 import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
 import TypingText from '../TypingText';
 import { usePageLeave } from '../PageTransition';
 import { isAnyKeyPress } from '../../_libs/keys';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
+import { useReducedMotionPref } from '../../_libs/settings';
 import {
   INITIAL,
   REVEAL_BEAT_MS,
@@ -84,7 +79,7 @@ export default function DialogBox({
   onReset,
 }: Props) {
   const [state, dispatch] = useReducer(dialogReducer, INITIAL);
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionPref();
   const leave = usePageLeave();
   const shakeX = useMotionValue(0);
 
