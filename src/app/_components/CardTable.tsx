@@ -19,8 +19,9 @@ import Card, {
   showsLabel,
 } from './Card';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import { CROSSFADE, SPRING } from '../_libs/motion';
+import { useReducedMotionPref } from '../_libs/settings';
 
 type Props = {
   tarotHand?: CardType[];
@@ -136,7 +137,7 @@ function useStageBox() {
 }
 
 export default function CardTable({ tarotHand, setAllRevealed }: Props) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionPref();
   const [stageRef, box] = useStageBox();
   const [dealt, setDealt] = useState(0);
   const [settled, setSettled] = useState(false);

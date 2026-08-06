@@ -1,19 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-} from 'motion/react';
+import { AnimatePresence, animate, motion, useMotionValue } from 'motion/react';
 import { trpc } from '../../_trpc/client';
 import { DialogButton } from '../DialogButton';
 import TypingText from '../TypingText';
 import { usePageLeave } from '../PageTransition';
 import { isAnyKeyPress } from '../../_libs/keys';
 import { CROSSFADE, SHAKE, SPRING } from '../../_libs/motion';
+import { useReducedMotionPref } from '../../_libs/settings';
 import {
   INITIAL,
   REVEAL_BEAT_MS,
@@ -43,8 +38,8 @@ export const WAITING_MESSAGE =
 /**
  * What happened, and nothing more, so it is safe to say at any moment. The
  * reading routinely lands while the reveal prompt is still typing — the prompt
- * is ~400 characters at 30ms each behind a 1600ms lead-in — and while the
- * visitor is still turning cards.
+ * is ~400 characters at the default 30ms each behind a 1600ms lead-in — and
+ * while the visitor is still turning cards.
  */
 export const ARRIVED_MESSAGE = 'Your reading has arrived.';
 /**
@@ -84,7 +79,7 @@ export default function DialogBox({
   onReset,
 }: Props) {
   const [state, dispatch] = useReducer(dialogReducer, INITIAL);
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionPref();
   const leave = usePageLeave();
   const shakeX = useMotionValue(0);
 

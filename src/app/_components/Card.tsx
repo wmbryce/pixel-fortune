@@ -8,10 +8,10 @@ import {
   motion,
   HTMLMotionProps,
   useMotionValue,
-  useReducedMotion,
   useTransform,
 } from 'motion/react';
 import { useHoverCapable } from '../_libs/media';
+import { useReducedMotionPref } from '../_libs/settings';
 import { CROSSFADE, DIM, SPRING } from '../_libs/motion';
 
 interface Props extends HTMLMotionProps<'div'> {
@@ -44,7 +44,7 @@ export const cardCell = (width: number) => ({
 
 export default function Card(props: Props) {
   const { id, data, reveal, width } = props;
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionPref();
   const hoverable = useHoverCapable();
 
   // The back faces the viewer at 0deg and the front at 180deg, so the card

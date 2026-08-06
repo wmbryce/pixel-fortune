@@ -14,7 +14,9 @@ the five cards. Once all five are up, the reading pages through the dialog box a
 paragraph at a time. The last page returns you to the title.
 
 The whole arc works from the keyboard alone, and works with
-`prefers-reduced-motion` set.
+`prefers-reduced-motion` set. **Settings** in the top corner adds an in-app
+reduce-motion override and a text-speed control for the reading; **Credits**
+next to it lists the attributions.
 
 ## The art
 

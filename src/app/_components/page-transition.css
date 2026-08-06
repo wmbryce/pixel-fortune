@@ -34,3 +34,10 @@
     animation-duration: 200ms;
   }
 }
+
+/* The app-level override (`_libs/settings.ts`): same reduced form, keyed on
+   the attribute the boot script and `SettingsBridge` stamp on <html>. */
+:root[data-pf-reduce-motion] .page-enter {
+  animation-name: page-enter-reduced;
+  animation-duration: 200ms;
+}

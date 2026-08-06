@@ -84,7 +84,7 @@ failure: a count that climbs means `PF_MAX_OUTPUT_TOKENS` is too low.
 ## The reading's shape is load-bearing
 
 The dialog box splits the reading on blank lines and pages one paragraph at a
-time through a 30ms/char typewriter, so the prompt in
+time through a typewriter (30ms/char at the default text speed), so the prompt in
 `src/server/handlers/fortune.ts` pins the format — 4 paragraphs, blank-line
 separated, plain prose, no markdown — as much as the voice. Loosening it pages
 literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
@@ -206,6 +206,29 @@ this; `test/card-reveal.test.tsx` pins the card's half, and
 must not answer, the tap it must, the `touchstart` it must not cancel, and the
 hint being a real control named by its own copy.
 
+## Settings are a store, and the modals contain their own events
+
+`src/app/_libs/settings.ts` (#3) is a localStorage-backed external store, the
+`media.ts` idiom — no provider. Two settings exist because two things are real
+today: the reduce-motion override and `TypingText`'s pace; #4's sound toggle is
+a new `Settings` key plus a row in `AppMenu`'s panel, nothing structural. Do
+not add a setting nothing consumes. The override reaches CSS through a
+`data-pf-reduce-motion` attribute on `<html>` — stamped pre-paint by an inline
+script in `layout.tsx` and post-hydration by `SettingsBridge` — and the key and
+attribute are restated in the script and two stylesheets because neither can
+import the module; `test/settings.test.tsx` pins the restatements.
+
+`Modal.tsx` is a native `<dialog>`: the top layer, the inert background (the
+focus trap) and Escape are the browser's, while initial focus, focus return and
+Escape's re-route through `onClose` are the component's own. The part specific
+to this app: both screens answer "any key" and "click anywhere" on the window,
+and inert stops delivery _to_ the background, not bubbling _through_ it — so
+the dialog root and the `AppMenu` triggers stop propagation of keydown and
+click. Undo that and ticking a checkbox advances the flow underneath.
+`test/modal-access.test.tsx` pins all of it; jsdom has no `<dialog>` methods,
+so `test/setup.ts` installs minimal stand-ins (attribute + `close` event only —
+the trap itself is not simulated).
+
 ## The card reveal is a flip, so both faces are always mounted
 
 `Card.tsx` turns the card on `rotateY` (back at 0deg, front at 180deg) with
@@ -223,7 +246,10 @@ bounce to express. Decided in #13, which measured the alternatives.
 ## Motion comes from tokens, and reduced motion is a cross-fade
 
 `src/app/_libs/motion.ts` owns every spring and duration in the app; nothing
-else may hand-type one. `useReducedMotion()` is read in `Card`, `CardTable`,
+else may hand-type one. The preference is read through `useReducedMotionPref()`
+(`src/app/_libs/settings.ts`) — the OS media query ORed with the settings
+modal's override, so a new animated surface must read that hook, never
+`useReducedMotion()` directly. It is read in `Card`, `CardTable`,
 `DialogBox` and `PageTransition`, and each one substitutes `CROSSFADE` for its
 spring rather than disabling the animation — the card stops turning but the back
 still fades off it, the deal keeps its beat but each card fades up in its seat,

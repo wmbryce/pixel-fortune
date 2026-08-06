@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
+import { useReducedMotionPref, useSettings } from '../_libs/settings';
 
-/** 30ms a character, the pace the reading has always been paced at. */
-const TYPING_MS = 30;
+/**
+ * Per character. `normal` is the pace the reading has always been paced at;
+ * the rest are the settings modal's text-speed control (#3) — `instant` joins
+ * the reduced-motion path below rather than carrying a pace of its own.
+ */
+const TYPING_MS = { normal: 30, fast: 12 } as const;
 
 type Props = {
   text: string;
@@ -47,7 +51,9 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
    * no longer an animation for it to precede. What is lost is the beat, not the
    * paragraph.
    */
-  const instant = (useReducedMotion() ?? false) || skip;
+  const { textSpeed } = useSettings();
+  const instant = useReducedMotionPref() || skip || textSpeed === 'instant';
+  const pace = TYPING_MS[textSpeed === 'fast' ? 'fast' : 'normal'];
 
   // Adjusted during render rather than in an effect, so a new page never paints
   // a frame of the previous page's progress measured against it.
@@ -57,6 +63,15 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
   } else if (instant && count !== text.length) {
     setCount(text.length);
   }
+
+  // Mirrors `count` for the typing effect below, which re-runs when the
+  // settings modal changes the pace or the reduced-motion answer mid-page and
+  // must resume from where the visitor is, not from character one. Declared
+  // before that effect: bodies run in order, so it is current when read.
+  const progress = useRef(0);
+  useEffect(() => {
+    progress.current = count;
+  });
 
   useEffect(() => {
     if (instant) return;
@@ -70,15 +85,15 @@ export default function TypingText({ text, delay, skip, onDone }: Props) {
           setCount(n);
           step(n + 1);
         },
-        n === 1 ? delay : TYPING_MS
+        n === 1 ? delay : pace
       );
     };
-    step(1);
+    step(progress.current + 1);
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [text, delay, instant]);
+  }, [text, delay, instant, pace]);
 
   useEffect(() => {
     const el = scroller.current;

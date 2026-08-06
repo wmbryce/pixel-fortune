@@ -30,7 +30,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { motion, useMotionValue } from 'motion/react';
+import { useReducedMotionPref } from '../_libs/settings';
 import { useRouter } from 'next/navigation';
 import { CROSSFADE, DURATION, EASE_OUT } from '../_libs/motion';
 import './page-transition.css';
@@ -101,7 +102,7 @@ export default function PageTransition({
   prefetch = NOTHING,
 }: Props) {
   const router = useRouter();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionPref();
   const main = useRef<HTMLElement>(null);
   // The exit's opacity is a value rather than a plain variant key so it can be
   // seeded from the screen before it animates; see `leave`.
