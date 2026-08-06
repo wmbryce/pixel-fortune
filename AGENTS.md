@@ -241,8 +241,10 @@ first. Four invariants, each with a spec in `test/sound.test.tsx`:
   never touches the Web Audio API at all — which is also why every other spec
   renders `Card` and `DialogBox` without stubbing one.
 - **A context is only born inside a gesture.** `arm` runs from window
-  `pointerdown`/`keydown` in the capture phase (the modal triggers stop
-  propagation) and from `setSoundFromGesture`, which the settings tick calls
+  listeners in the capture phase (the modal triggers stop propagation) on the
+  events that carry user activation — `pointerup`/`touchend`/`keydown`, since
+  a touch `pointerdown` precedes activation; see `GESTURES` — and from
+  `setSoundFromGesture`, which the settings tick calls
   because that click _is_ the gesture and `useSoundSync`'s commit is a beat too
   late. `playCue` refuses anything but a `running` context rather than resuming
   one — that refusal is what keeps the console free of autoplay warnings.

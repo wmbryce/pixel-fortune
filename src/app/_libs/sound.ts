@@ -14,8 +14,10 @@
  *   point of never touching the Web Audio API at all.
  * - **A context is only ever born inside a gesture.** An `AudioContext`
  *   constructed outside one starts suspended and logs an autoplay warning when
- *   resumed, so `arm` runs from a window `pointerdown`/`keydown` (and from the
- *   tick that turns sound on, which is itself a click). `playCue` refuses
+ *   resumed, so `arm` runs from window listeners on the events that actually
+ *   carry user activation — see `GESTURES` for why `pointerdown` alone would
+ *   not do — and from the tick that turns sound on, which is itself a click.
+ *   `playCue` refuses
  *   anything but a running context rather than trying to start one, which is
  *   why a cue that lands before the first gesture is dropped silently instead
  *   of warning.
@@ -80,8 +82,17 @@ let enabled = false;
 let ctx: AudioContext | null = null;
 let listening = false;
 
-/** The gesture types that satisfy the autoplay policy for creating a context. */
-const GESTURES = ['pointerdown', 'keydown'] as const;
+/**
+ * The events that carry the user activation the autoplay policy checks.
+ * Browsers grant activation at `pointerup`/`touchend`/`keydown` — a touch
+ * `pointerdown` arrives *before* activation exists, so were it the only
+ * pointer event here, a returning visitor's first tap would build the context
+ * suspended and log the very warning this module exists to never produce. It
+ * stays in the list for the mouse, where it does carry activation and arms a
+ * beat earlier; `touchend` covers Safari, whose late Pointer Events adoption
+ * makes `pointerup` the less dependable of the pair there.
+ */
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const;
 
 /**
  * Take the gesture. Kept as a live listener rather than a one-shot: a browser

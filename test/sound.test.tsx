@@ -180,6 +180,8 @@ describe('sound, before the visitor asks for it', () => {
     renderMenu();
     renderCard();
     fireEvent.pointerDown(window);
+    fireEvent.pointerUp(window);
+    fireEvent.touchEnd(window);
     fireEvent.keyDown(window, { key: 'a' });
     clickCard();
     expect(contexts).toHaveLength(0);
@@ -210,6 +212,9 @@ describe('the toggle', () => {
     expect(stored().sound).toBe(false);
     // The listeners went with it: a later gesture starts nothing.
     fireEvent.pointerDown(window);
+    fireEvent.pointerUp(window);
+    fireEvent.touchEnd(window);
+    fireEvent.keyDown(window, { key: 'x' });
     expect(contexts).toHaveLength(1);
   });
 
@@ -222,6 +227,24 @@ describe('the toggle', () => {
     fireEvent.keyDown(window, { key: 'x' });
     expect(contexts).toHaveLength(1);
   });
+
+  /**
+   * A tap grants user activation at its end, not its start, so the end of the
+   * tap is what must arm — a `pointerdown`-only listener would build the
+   * context a moment too early and get it suspended.
+   */
+  it('arms on the end of a tap, where activation is granted', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sound: true }));
+    reloadSettings();
+    renderMenu();
+    fireEvent.pointerUp(window);
+    expect(contexts).toHaveLength(1);
+    // A backgrounded tab suspends the context; Safari's `touchend` — the next
+    // interaction's end — is allowed to resume it.
+    context().state = 'suspended';
+    fireEvent.touchEnd(window);
+    expect(context().resume).toHaveBeenCalled();
+  });
 });
 
 describe('reduced motion', () => {
@@ -233,6 +256,7 @@ describe('reduced motion', () => {
     expect(stored().sound).toBe(true);
     expect(contexts).toHaveLength(0);
     fireEvent.pointerDown(window);
+    fireEvent.pointerUp(window);
     expect(contexts).toHaveLength(0);
   });
 });
