@@ -38,8 +38,8 @@ export const WAITING_MESSAGE =
 /**
  * What happened, and nothing more, so it is safe to say at any moment. The
  * reading routinely lands while the reveal prompt is still typing — the prompt
- * is ~400 characters at 30ms each behind a 1600ms lead-in — and while the
- * visitor is still turning cards.
+ * is ~400 characters at the default 30ms each behind a 1600ms lead-in — and
+ * while the visitor is still turning cards.
  */
 export const ARRIVED_MESSAGE = 'Your reading has arrived.';
 /**

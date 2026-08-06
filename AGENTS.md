@@ -84,7 +84,7 @@ failure: a count that climbs means `PF_MAX_OUTPUT_TOKENS` is too low.
 ## The reading's shape is load-bearing
 
 The dialog box splits the reading on blank lines and pages one paragraph at a
-time through a 30ms/char typewriter, so the prompt in
+time through a typewriter (30ms/char at the default text speed), so the prompt in
 `src/server/handlers/fortune.ts` pins the format — 4 paragraphs, blank-line
 separated, plain prose, no markdown — as much as the voice. Loosening it pages
 literal `##` through a pixel dialog box, or hands `TypingText` a wall of text
