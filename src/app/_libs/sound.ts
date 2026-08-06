@@ -12,15 +12,15 @@
  *   the `useSound` sync move it, both from the `sound` key the visitor ticks.
  *   No context is constructed before that, so a first visit is silent to the
  *   point of never touching the Web Audio API at all.
- * - **A context is only ever born inside a gesture.** An `AudioContext`
- *   constructed outside one starts suspended and logs an autoplay warning when
- *   resumed, so `arm` runs from window listeners on the events that actually
- *   carry user activation — see `GESTURES` for why `pointerdown` alone would
- *   not do — and from the tick that turns sound on, which is itself a click.
- *   `playCue` refuses
- *   anything but a running context rather than trying to start one, which is
- *   why a cue that lands before the first gesture is dropped silently instead
- *   of warning.
+ * - **A context is only ever constructed inside user activation.** One built
+ *   outside it starts suspended and logs an autoplay warning when resumed.
+ *   Activation is granted at `pointerup`/`touchend`/`keydown` and never at
+ *   `pointerdown` — which has been in `GESTURES` twice and been wrong both
+ *   times; it stays out — so `arm` runs from window listeners on exactly the
+ *   granting events, and from the tick that turns sound on, which is itself a
+ *   click. `playCue` refuses anything but a running context rather than
+ *   trying to start one, which is why a cue that lands before the first
+ *   gesture is dropped silently instead of warning.
  * - **Reduced motion covers sound.** A visitor who has asked for calm — OS
  *   preference or the app override, whichever — is asking the page to stop
  *   doing things at them unprompted, and an unasked-for noise is that in
@@ -83,16 +83,18 @@ let ctx: AudioContext | null = null;
 let listening = false;
 
 /**
- * The events that carry the user activation the autoplay policy checks.
- * Browsers grant activation at `pointerup`/`touchend`/`keydown` — a touch
- * `pointerdown` arrives *before* activation exists, so were it the only
- * pointer event here, a returning visitor's first tap would build the context
- * suspended and log the very warning this module exists to never produce. It
- * stays in the list for the mouse, where it does carry activation and arms a
- * beat earlier; `touchend` covers Safari, whose late Pointer Events adoption
- * makes `pointerup` the less dependable of the pair there.
+ * The events that grant user activation, the only place a context may be
+ * constructed. A tap grants it at `pointerup`/`touchend`, never at
+ * `pointerdown`: on touch, `pointerdown` fires before activation exists, so a
+ * returning visitor's first tap would build the context suspended and log the
+ * very warning this module exists to never produce. `pointerdown` has been in
+ * this list twice and been wrong both times — do not restore it, and not for
+ * latency either: a click is dispatched after `pointerup`, so arming there is
+ * still ahead of any click-driven cue on a mouse too. `touchend` covers
+ * Safari, whose late Pointer Events adoption makes `pointerup` the less
+ * dependable of the pair there.
  */
-const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const;
+const GESTURES = ['pointerup', 'touchend', 'keydown'] as const;
 
 /**
  * Take the gesture. Kept as a live listener rather than a one-shot: a browser

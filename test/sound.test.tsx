@@ -211,7 +211,6 @@ describe('the toggle', () => {
     expect(ctx.close).toHaveBeenCalled();
     expect(stored().sound).toBe(false);
     // The listeners went with it: a later gesture starts nothing.
-    fireEvent.pointerDown(window);
     fireEvent.pointerUp(window);
     fireEvent.touchEnd(window);
     fireEvent.keyDown(window, { key: 'x' });
@@ -229,10 +228,23 @@ describe('the toggle', () => {
   });
 
   /**
-   * A tap grants user activation at its end, not its start, so the end of the
-   * tap is what must arm — a `pointerdown`-only listener would build the
-   * context a moment too early and get it suspended.
+   * Twice now `pointerdown` has crept into the gesture list and been wrong: a
+   * tap grants user activation at its end, not its start, and a context built
+   * on the start comes up suspended with the autoplay warning already logged.
+   * So a real tap's sequence, in order — the construction must wait for the
+   * event that grants activation, not merely be followed by one.
    */
+  it('constructs nothing until the event that grants activation', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sound: true }));
+    reloadSettings();
+    renderMenu();
+    fireEvent.pointerDown(window);
+    expect(contexts).toHaveLength(0);
+    fireEvent.pointerUp(window);
+    fireEvent.touchEnd(window);
+    expect(contexts).toHaveLength(1);
+  });
+
   it('arms on the end of a tap, where activation is granted', () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sound: true }));
     reloadSettings();
