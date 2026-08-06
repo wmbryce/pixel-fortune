@@ -15,8 +15,9 @@ paragraph at a time. The last page returns you to the title.
 
 The whole arc works from the keyboard alone, and works with
 `prefers-reduced-motion` set. **Settings** in the top corner adds an in-app
-reduce-motion override and a text-speed control for the reading; **Credits**
-next to it lists the attributions.
+reduce-motion override, a text-speed control for the reading, and an opt-in
+sound toggle — three synthesized retro cues, off by default and silent under
+reduced motion; **Credits** next to it lists the attributions.
 
 ## The art
 
