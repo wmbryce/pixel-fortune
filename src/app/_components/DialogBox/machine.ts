@@ -28,8 +28,9 @@ import { RESET_MESSAGE, REVEAL_MESSAGE, WELCOME_MESSAGE } from './data';
 export const WAKE_MS = 1000;
 /**
  * The beat between the hand landing and the box asking for the first card.
- * `CardTable` deals inside it: five cards at 260ms plus a 250ms settle, so the
- * spread is at rest before this fires.
+ * `CardTable` deals inside it: `HAND_SIZE` cards at 260ms plus a 250ms settle,
+ * so the spread is at rest before this fires. At six cards that is 1810ms, and
+ * the margin is what a larger hand spends — see `HAND_SIZE` in `@/types`.
  */
 export const REVEAL_BEAT_MS = 2200;
 /** The lead-in before a page that opens an act starts typing. */

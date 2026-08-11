@@ -3,7 +3,7 @@
  * binding constraint is vertical — two rows above the dialog box's 256px — and
  * no width breakpoint expresses that. Decided in #14.
  *
- * These are the properties that layout has to keep: five cards on the stage at
+ * These are the properties that layout has to keep: every card on the stage at
  * every size, a plan whose caption row agrees with the one `Card` renders, and
  * — where no plan fits at all — one the stage can reserve, so the cards stay
  * reachable instead of being centred off both ends of it.
@@ -11,6 +11,10 @@
 import { describe, it, expect } from 'vitest';
 import { planSpread, spreadCandidates } from '@/app/_components/CardTable';
 import { cardCell, showsLabel } from '@/app/_components/Card';
+import { HAND_SIZE } from '@/types';
+
+/** Every seat in the hand, in order — whatever `HAND_SIZE` currently is. */
+const EVERY_CARD = Array.from({ length: HAND_SIZE }, (_, i) => i);
 
 const GAP = 12;
 
@@ -53,10 +57,10 @@ const budget = (stage: { w: number; h: number }) => ({
 const MAX_CARD = planSpread(4000, 4000).cardW;
 
 describe('planSpread', () => {
-  it.each(STAGES)('keeps all five cards on the stage at $name', stage => {
+  it.each(STAGES)('keeps every card on the stage at $name', stage => {
     const plan = planSpread(stage.w, stage.h);
 
-    expect(plan.rows.flat().sort()).toEqual([0, 1, 2, 3, 4]);
+    expect(plan.rows.flat().sort((a, b) => a - b)).toEqual(EVERY_CARD);
     expect(widest(plan)).toBeLessThanOrEqual(stage.w);
     expect(tall(plan)).toBeLessThanOrEqual(stage.h);
   });
@@ -138,23 +142,34 @@ describe('planSpread', () => {
     const plan = planSpread(1024, 176);
     const [, twoRows] = spreadCandidates(1024, 176);
 
-    expect(plan.rows).toEqual([[0, 1, 2, 3, 4]]);
+    expect(plan.rows).toEqual([EVERY_CARD]);
     expect(plan.cardW).toBeGreaterThan(twoRows.cardW);
     expect(tall(plan)).toBeLessThanOrEqual(176);
     expect(tall(twoRows)).toBeGreaterThan(176);
   });
 
-  it('falls back to 2+3 once five across would be too small', () => {
+  it('falls back to two rows once one across would be too small', () => {
     expect(planSpread(390, 520).rows).toEqual([
-      [0, 1],
-      [2, 3, 4],
+      [0, 1, 2],
+      [3, 4, 5],
     ]);
   });
 
-  it('keeps one row while five fit at a usable size', () => {
+  it('keeps one row while the whole hand fits at a usable size', () => {
     const plan = planSpread(1200, 576);
-    expect(plan.rows).toEqual([[0, 1, 2, 3, 4]]);
+    expect(plan.rows).toEqual([EVERY_CARD]);
     expect(plan.cardW).toBeGreaterThanOrEqual(96);
+  });
+
+  // The seats are the hand, so no card is dropped and none is dealt twice —
+  // the property that a hard-coded index array stops holding the moment
+  // `HAND_SIZE` moves.
+  it('seats exactly the hand, at every stage and in both candidates', () => {
+    for (const stage of [...STAGES, ...SHORT_STAGES]) {
+      for (const plan of spreadCandidates(stage.w, stage.h)) {
+        expect(plan.rows.flat().sort((a, b) => a - b)).toEqual(EVERY_CARD);
+      }
+    }
   });
 
   it('drops the caption rather than the fit on a short viewport', () => {

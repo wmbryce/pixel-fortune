@@ -6,14 +6,14 @@
  * hand-written and nothing has to be seeded.
  *
  * The pool is read back by *picking a reading and dealing its cards*, never by
- * looking up a reading for a spread the visitor already drew. Five cards from
- * 78 is ~2.4e7 ordered combinations before positions are even considered, so a
+ * looking up a reading for a spread the visitor already drew. Six cards from
+ * 78 is ~1.7e11 ordered combinations before positions are even considered, so a
  * lookup keyed on the draw would miss essentially every time and the cache
  * would be dead weight. Inverting it makes every cached reading exactly as
- * coherent as a live one, because it genuinely was written about the five cards
- * on the table. Do not "fix" this back into a lookup.
+ * coherent as a live one, because it genuinely was written about the cards on
+ * the table. Do not "fix" this back into a lookup.
  */
-import { CardType } from '@/types';
+import { CardType, HAND_SIZE } from '@/types';
 import { config } from './config';
 import { getStore } from './store';
 import { cardsByIds } from './handlers/deck';
@@ -61,7 +61,15 @@ export async function randomCachedReading(): Promise<ReplayedReading | null> {
   } catch {
     return null;
   }
-  if (entry.handIds?.length !== 5 || !entry.reading) return null;
+  // A bound, not an equality. This is a validity check on a blob decoded from
+  // the store, and the pool outlives any one value of `HAND_SIZE`: the entries
+  // sitting in Redis on the deploy that changes it were written about the old
+  // hand, and pinning this to the new one rejects every one of them at once —
+  // the cache silently goes dark and every capped visitor gets the cold-start
+  // reading instead. An entry is still coherent at its own size, because the
+  // spread is dealt *from* it, and `CardTable` lays out the hand it is handed.
+  const dealt = entry.handIds?.length ?? 0;
+  if (dealt < 1 || dealt > HAND_SIZE || !entry.reading) return null;
 
   const hand = cardsByIds(entry.handIds);
   return hand ? { hand, reading: entry.reading } : null;

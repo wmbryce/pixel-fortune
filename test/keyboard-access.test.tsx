@@ -14,7 +14,7 @@ import { render, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isAnyKeyPress } from '@/app/_libs/keys';
 import { BLOCKED_MESSAGE } from '@/app/_components/DialogBox/machine';
-import { CardType } from '@/types';
+import { CardType, HAND_SIZE } from '@/types';
 
 const READING = ['Past.', 'Present.', 'Future.'].join('\n\n');
 
@@ -43,7 +43,7 @@ import DialogBox, {
 } from '@/app/_components/DialogBox';
 import CardTable from '@/app/_components/CardTable';
 
-const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
+const HAND: CardType[] = Array.from({ length: HAND_SIZE }, (_, i) => ({
   id: i,
   image: `Tarot_0${i}.png`,
   name: `Card ${i}`,
@@ -431,6 +431,8 @@ describe('CardTable, announced', () => {
     });
 
     const region = document.querySelector('p[aria-live="polite"]');
-    expect(region?.textContent).toBe('Card 2. 1 of 5 cards revealed.');
+    expect(region?.textContent).toBe(
+      `Card 2. 1 of ${HAND_SIZE} cards revealed.`
+    );
   });
 });

@@ -7,7 +7,7 @@
  * so the reserve-then-check algorithm is exercised exactly as deployed.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { CardType } from '@/types';
+import { HAND_SIZE, type CardType } from '@/types';
 
 const generateFortune = vi.hoisted(() => vi.fn());
 vi.mock('@/server/handlers/fortune', () => ({
@@ -329,7 +329,7 @@ describe('concurrent holds', () => {
     expect(
       readings.filter(text => text === seed.reading).length
     ).toBeGreaterThan(0);
-    expect(dealt.every(hand => hand.hand.length === 5)).toBe(true);
+    expect(dealt.every(hand => hand.hand.length === HAND_SIZE)).toBe(true);
   });
 
   it('keeps dealing when giving a rolled-back slot back fails', async () => {
@@ -351,7 +351,7 @@ describe('concurrent holds', () => {
 
     const over = await dealHand(parker);
 
-    expect(over.hand).toHaveLength(5);
+    expect(over.hand).toHaveLength(HAND_SIZE);
     expect(await resolveReading(over.token)).toBe(seed.reading);
     expect(storeFailures().last?.scope).toBe('reserveReading.releaseSlot');
   });
@@ -369,7 +369,7 @@ describe('store failures', () => {
       breakStore(method);
       const dealt = await dealHand(visitor('offline'));
 
-      expect(dealt.hand).toHaveLength(5);
+      expect(dealt.hand).toHaveLength(HAND_SIZE);
       expect(dealt.token.length).toBeGreaterThan(0);
     }
   );
@@ -503,7 +503,7 @@ describe('cached mode', () => {
       await draw(visitor('v2')),
       await draw(visitor('v3')),
     ];
-    expect((await randomCachedReading())?.hand).toHaveLength(5);
+    expect((await randomCachedReading())?.hand).toHaveLength(HAND_SIZE);
     expect((await budgetStatus()).capReached).toBe(true);
 
     // Over the cap the reading is chosen first and its spread is dealt, so the
@@ -518,10 +518,10 @@ describe('cached mode', () => {
   });
 
   it('replays the exact spread and text that were cached together', async () => {
-    const handIds = [7, 21, 3, 60, 14];
+    const handIds = [7, 21, 3, 60, 14, 32];
     await cacheReading({
       handIds,
-      reading: 'A reading about exactly those five cards.',
+      reading: 'A reading about exactly those six cards.',
       model: 'test-model',
       createdAt: new Date().toISOString(),
     });
@@ -531,12 +531,12 @@ describe('cached mode', () => {
 
     expect(calls).toBe(0);
     expect(dealt.hand.map((c: CardType) => c.id)).toEqual(handIds);
-    expect(dealt.reading).toBe('A reading about exactly those five cards.');
+    expect(dealt.reading).toBe('A reading about exactly those six cards.');
   });
 
   it('rehydrates a cached spread from the current deck, not a stale snapshot', async () => {
     await cacheReading({
-      handIds: [0, 1, 2, 3, 4],
+      handIds: [0, 1, 2, 3, 4, 5],
       reading: 'Cached against an earlier deck.',
       model: 'test-model',
       createdAt: new Date().toISOString(),
@@ -544,7 +544,7 @@ describe('cached mode', () => {
 
     const replayed = await randomCachedReading();
     expect(replayed?.hand.map(c => c.name)).toEqual(
-      TarotDeck.slice(0, 5).map(c => c.name)
+      TarotDeck.slice(0, HAND_SIZE).map(c => c.name)
     );
   });
 
@@ -582,7 +582,7 @@ describe('cached mode', () => {
     const dealt = await draw();
 
     expect(calls).toBe(0);
-    expect(dealt.hand).toHaveLength(5);
+    expect(dealt.hand).toHaveLength(HAND_SIZE);
     expect(dealt.reading).toBe(COLD_START_READING);
   });
 });
@@ -597,7 +597,7 @@ describe('rate limit', () => {
     const third = await draw(visitor('heavy'));
 
     expect(calls).toBe(2);
-    expect(third.hand).toHaveLength(5);
+    expect(third.hand).toHaveLength(HAND_SIZE);
     expect(third.reading.length).toBeGreaterThan(0);
     expect([first.reading, second.reading]).toContain(third.reading);
   });
