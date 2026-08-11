@@ -269,6 +269,38 @@ export default function DialogBox({
   );
 
   /**
+   * The same press, for the visitors who have no key to press.
+   *
+   * "Any key" had a click path, but it was the Continue button's `onClick` —
+   * and that button is only in the document once the page is fully on screen
+   * (`page && state.typed`), which is exactly when there is nothing left to
+   * skip. So while the typewriter ran there was no click target at all: a mouse
+   * could not fill a message in, and a touch device, which has no ambient
+   * keydown either, could do nothing but wait every page out to the end. The
+   * surface is the box itself for that reason — it is what is on screen while
+   * the text is still typing, and it is where the message the press finishes
+   * actually is.
+   *
+   * It is a `click` and nothing else. A tap reaches here as a synthesised
+   * click, so one finger is one press; a `touchstart` listener beside this one
+   * would skip *and* advance on a single tap. The cards are not inside this
+   * subtree, so turning one over never reaches here.
+   *
+   * Clicks on the button belong to the button, whose `onClick` already answers
+   * them — without this guard a press on it would step the dialog twice. The
+   * guard covers the keyboard too: Enter and Space on the focused button arrive
+   * as a click of that button's own, which is the path `isAnyKeyPress` and
+   * `anyKey` deliberately leave to the browser.
+   */
+  const pressSurface = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      if ((event.target as HTMLElement).closest('button')) return;
+      press();
+    },
+    [press]
+  );
+
+  /**
    * The button is unmounted while a page types and mounted again when it is
    * done, so pressing it drops focus to `<body>` every time — a keyboard
    * visitor would have to tab back in at each paragraph. Give it back, but only
@@ -377,7 +409,13 @@ export default function DialogBox({
         {status && <span key={status.nonce}>{status.message}</span>}
       </p>
       <motion.div
-        className="flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6"
+        onClick={pressSurface}
+        // A pointer affordance only while there is something to press: the box
+        // is on screen a beat before it has anything to say, and a scene with
+        // no page answers nothing.
+        className={`flex flex-col justify-between w-[100%] bg-brown_02 border-brown_01 border-8 text-brown_03 overflow-y-scroll rounded-md mt-6${
+          page ? ' cursor-pointer' : ''
+        }`}
         variants={dialogVariants}
         initial="hidden"
         animate={page ? 'visible' : 'loading'}
