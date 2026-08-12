@@ -405,7 +405,7 @@ So while the typewriter ran there was no click target at all: a mouse could not
 finish a message, and a phone, which has no ambient `keydown` either, could do
 nothing but wait every page out.
 
-The press surface is therefore the box itself (`DialogBox/index.tsx`), and three
+The press surface is therefore the box itself (`DialogBox/index.tsx`), and four
 things about it are load-bearing:
 
 - **It listens for `click` and nothing else.** A tap arrives as a synthesised
@@ -418,6 +418,10 @@ things about it are load-bearing:
 - **It is scoped to the box, not the window.** The cards are siblings, so a tap
   meant to turn one over never reaches the dialog. A window listener — which is
   what `Welcome` can afford, having no cards — would swallow it.
+- **A click that ends a text selection is not a press.** Dragging across a
+  paragraph to copy it finishes with a mouseup inside the box, and the page it
+  would advance past cannot be returned to. Only this surface has that exposure:
+  the keyboard path produces no click, and a tap leaves the selection collapsed.
 
 `test/dialog-press.test.tsx` pins all of it, including the tap.
 

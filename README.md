@@ -50,9 +50,10 @@ are the ones worth the click.
   no momentum for an overshoot to express. `src/app/_components/Card.tsx`.
 - **The spread measures its stage instead of picking a breakpoint.** Both
   candidate layouts (one row, or two split as evenly as possible) are built and
-  the one yielding the larger card without overflow wins. The binding constraint is vertical, not
-  horizontal: a card grows taller as it turns, and two rows of them have to
-  clear a dialog box of fixed height. A media query cannot express that.
+  the one yielding the larger card without overflow wins. The binding constraint
+  is vertical, not horizontal: a card grows taller as it turns, and two rows of
+  them have to clear a dialog box of fixed height. A media query cannot express
+  that.
   `src/app/_components/CardTable.tsx`.
 - **Reduced motion is a cross-fade, not an off switch.** The card stops turning
   but its back still fades off the front; the deal keeps its beat while each
