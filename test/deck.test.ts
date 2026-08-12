@@ -11,6 +11,7 @@ import {
 } from '@/server/handlers/deck';
 import { drawHand } from '@/server/handlers/reading';
 import { TarotDeck } from '@/server/data/tarot-deck';
+import { HAND_SIZE } from '@/types';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -68,13 +69,19 @@ describe('createTarotDeck', () => {
 });
 
 describe('the dealt hand', () => {
-  it('is five distinct cards drawn from the deck', () => {
+  it('is HAND_SIZE distinct cards drawn from the deck', () => {
     const hand = drawHand();
-    expect(hand).toHaveLength(5);
-    expect(new Set(hand.map(card => card.id)).size).toBe(5);
+    expect(hand).toHaveLength(HAND_SIZE);
+    expect(new Set(hand.map(card => card.id)).size).toBe(HAND_SIZE);
     for (const card of hand) {
       expect(TarotDeck).toContainEqual(card);
     }
+  });
+
+  // The deal slices the shuffled deck, so a hand larger than it would silently
+  // come back short rather than throw.
+  it('draws from a deck that can supply the whole hand', () => {
+    expect(TarotDeck.length).toBeGreaterThanOrEqual(HAND_SIZE);
   });
 });
 

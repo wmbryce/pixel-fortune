@@ -31,7 +31,7 @@ const generateFortunePrompt = (tarotHand: CardType[]) => {
   const cardString = tarotHand.map((card: CardType) => card?.name).join(', ');
 
   return `
-    You are a tarot reader giving a detailed, insightful reading from a draw of 5 cards.
+    You are a tarot reader giving a detailed, insightful reading from a draw of ${tarotHand.length} cards.
     The cards drawn, in order, are: ${cardString}.
 
     Cover the past, the present, and the future, drawing on the symbolism, emotions,

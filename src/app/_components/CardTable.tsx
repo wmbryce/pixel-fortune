@@ -2,15 +2,17 @@
 /**
  * The spread lays out as a grid sized to the space it actually has, and the
  * hand arrives fanned and settles into it. Decided in #14: on a phone the old
- * `overflow-x-auto` row put three of the five cards off-screen, and a fan that
+ * `overflow-x-auto` row put most of the cards off-screen, and a fan that
  * stayed a fan cost a tap before any card was reachable. The fan is the deal,
  * not a mode.
  *
  * Sizing is measured rather than set by breakpoints because the binding
  * constraint is vertical — two rows above the dialog box's 256px — and no
- * width breakpoint can express that.
+ * width breakpoint can express that. That is also why the hand growing from
+ * five to six cost this file no layout work: nothing here is a threshold on
+ * the count, so the solver simply seats one more.
  */
-import { CardType } from '@/types';
+import { CardType, HAND_SIZE } from '@/types';
 import Card, {
   CHROME,
   LABEL_H,
@@ -37,7 +39,7 @@ const GAP = 12;
 const DEAL_MS = 260;
 const SETTLE_DELAY_MS = 250;
 
-/** Five across while they stay usably large; 2+3 once they do not. */
+/** One row while the cards stay usably large; two rows once they do not. */
 const ONE_ROW_MIN_CARD = 96;
 const MIN_CARD = 40;
 const MAX_CARD = 192;
@@ -77,13 +79,18 @@ export type SpreadPlan = {
   fits: boolean;
 };
 
-const LAYOUTS = [
-  [[0, 1, 2, 3, 4]],
-  [
-    [0, 1],
-    [2, 3, 4],
-  ],
-];
+/**
+ * The two ways a hand of this size can divide up a stage: one row, or two split
+ * as evenly as possible with the shorter one on top. Derived rather than
+ * written out, so the hand size is `HAND_SIZE`'s to change and this stays the
+ * question of how to seat whatever arrives — an odd hand still seats 2+3, and
+ * six seats 3+3.
+ */
+function layouts(count: number): number[][][] {
+  const indices = Array.from({ length: count }, (_, i) => i);
+  const top = Math.floor(count / 2);
+  return [[indices], [indices.slice(0, top), indices.slice(top)]];
+}
 
 function candidate(w: number, h: number, rows: number[][]): SpreadPlan {
   const cols = Math.max(...rows.map(r => r.length));
@@ -96,18 +103,26 @@ function candidate(w: number, h: number, rows: number[][]): SpreadPlan {
   return { cardW, rows, cell, width, height, fits: width <= w && height <= h };
 }
 
-/** Both ways the five cards can divide up a stage of this size. */
-export function spreadCandidates(w: number, h: number): SpreadPlan[] {
-  return LAYOUTS.map(rows => candidate(w, h, rows));
+/** Both ways a hand of `count` cards can divide up a stage of this size. */
+export function spreadCandidates(
+  w: number,
+  h: number,
+  count: number = HAND_SIZE
+): SpreadPlan[] {
+  return layouts(count).map(rows => candidate(w, h, rows));
 }
 
 /**
  * The better of the two, compared rather than assumed: `fitCard` clamps to
- * MIN_CARD, so 2+3 can come back smaller *and* taller than five across on a
+ * MIN_CARD, so two rows can come back smaller *and* taller than one across on a
  * short wide stage, and a plan always exists even where none fits.
  */
-export function planSpread(w: number, h: number): SpreadPlan {
-  const [oneRow, twoRows] = spreadCandidates(w, h);
+export function planSpread(
+  w: number,
+  h: number,
+  count: number = HAND_SIZE
+): SpreadPlan {
+  const [oneRow, twoRows] = spreadCandidates(w, h, count);
 
   if (oneRow.fits && oneRow.cardW >= ONE_ROW_MIN_CARD) return oneRow;
   if (oneRow.fits !== twoRows.fits) return oneRow.fits ? oneRow : twoRows;
@@ -141,8 +156,11 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
   const [stageRef, box] = useStageBox();
   const [dealt, setDealt] = useState(0);
   const [settled, setSettled] = useState(false);
+  // One slot per card actually in hand, never a literal: a hand of some other
+  // size would otherwise be short a slot that no reveal can fill, so the last
+  // card turns and `allRevealed` never fires.
   const [revealedCards, setRevealedCards] = useState<boolean[]>(() =>
-    Array(5).fill(false)
+    Array(tarotHand?.length ?? 0).fill(false)
   );
   const revealedRef = useRef(revealedCards);
   // The flip is the whole feedback a reveal gives, and it is entirely visual.
@@ -152,14 +170,14 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
 
   // Adjusted during render rather than in an effect, so a new hand is never
   // dealt for a frame on top of the last one's progress. Keyed on the hand
-  // itself, not its size: five cards replaced by five others is still a new
+  // itself, not its size: a hand replaced by one the same size is still a new
   // hand, and keying on the count would leave it dealt and face-up.
   const [handKey, setHandKey] = useState(tarotHand);
   if (handKey !== tarotHand) {
     setHandKey(tarotHand);
     setDealt(0);
     setSettled(false);
-    setRevealedCards(Array(5).fill(false));
+    setRevealedCards(Array(handSize).fill(false));
     setAnnouncement('');
   }
 
@@ -197,7 +215,10 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     if (!next.includes(false)) setAllRevealed(true);
   };
 
-  const plan = planSpread(box.w, box.h);
+  // Planned for the hand on the table, and for the one it is about to get while
+  // there is none: the stage reserves `plan.height` from the first frame, so a
+  // plan for no cards would let the column collapse and jump when they land.
+  const plan = planSpread(box.w, box.h, handSize || HAND_SIZE);
   const { cardW, rows, cell } = plan;
 
   // Never negative: a plan taller than the stage is centred off both its ends,
@@ -217,10 +238,14 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
     };
   };
 
+  // The hand fans around its own middle, which for an even hand falls between
+  // two cards rather than on one. Was a hard-coded 2 — the middle of five.
+  const middle = (plan.rows.flat().length - 1) / 2;
+
   const fan = (index: number) => ({
-    x: box.w / 2 + (index - 2) * cell.width * 0.4 - cell.width / 2,
-    y: box.h - cell.height - 8 + Math.abs(index - 2) * 9,
-    rotate: (index - 2) * 8,
+    x: box.w / 2 + (index - middle) * cell.width * 0.4 - cell.width / 2,
+    y: box.h - cell.height - 8 + Math.abs(index - middle) * 9,
+    rotate: (index - middle) * 8,
   });
 
   return (
@@ -234,7 +259,11 @@ export default function CardTable({ tarotHand, setAllRevealed }: Props) {
           <motion.div
             key={index}
             className="absolute left-0 top-0"
-            style={{ zIndex: settled ? 1 : 10 - Math.abs(index - 2) }}
+            // Rounded because an even hand's middle is a half: a fractional
+            // z-index is not a value CSS accepts, and the order is what matters.
+            style={{
+              zIndex: settled ? 1 : 10 - Math.round(Math.abs(index - middle)),
+            }}
             // Reduced motion keeps the deal — the cards still arrive one at a
             // time, on the same DEAL_MS beat — and drops the travel: each one
             // fades up in the seat it will keep, never crossing the screen and

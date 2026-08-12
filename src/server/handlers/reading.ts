@@ -16,7 +16,7 @@
  * server-side state. It cannot name a hand, request live mode, or spend twice.
  */
 import { randomUUID } from 'node:crypto';
-import { CardType } from '@/types';
+import { CardType, HAND_SIZE } from '@/types';
 import { config } from '../config';
 import { getStore, noteStoreFailure } from '../store';
 import {
@@ -43,7 +43,7 @@ export type DealtHand = { hand: CardType[]; token: string };
 const holdKey = (token: string) => `pf:hold:${token}`;
 
 /** Exported so `test/deck.test.ts` pins the real deal, not a copy of it. */
-export const drawHand = (): CardType[] => createTarotDeck().slice(0, 5);
+export const drawHand = (): CardType[] => createTarotDeck().slice(0, HAND_SIZE);
 
 /**
  * Contained, not ignored: the visitor's experience never depends on these, but

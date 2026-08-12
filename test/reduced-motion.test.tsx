@@ -13,7 +13,7 @@ import React from 'react';
 import { render, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { mediaQueryList } from './setup';
-import { CardType } from '@/types';
+import { CardType, HAND_SIZE } from '@/types';
 import { DIM } from '@/app/_libs/motion';
 
 // A pointer device that has asked for reduced motion: the case where both
@@ -35,7 +35,7 @@ const DATA: CardType = {
   image: 'Tarot_00_Fool.png',
 };
 
-const HAND: CardType[] = Array.from({ length: 5 }, (_, i) => ({
+const HAND: CardType[] = Array.from({ length: HAND_SIZE }, (_, i) => ({
   id: i,
   image: `Tarot_0${i}.png`,
   name: `Card ${i}`,
@@ -167,10 +167,10 @@ describe('CardTable under prefers-reduced-motion', () => {
     expect(Number(y?.[1] ?? 0)).toBeGreaterThanOrEqual(0);
     expect(first.style.transform).not.toMatch(/rotate\(-?[1-9]/);
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < HAND_SIZE; i++) {
       await act(() => new Promise(r => setTimeout(r, 300)));
     }
-    expect(seats().length).toBe(5);
+    expect(seats().length).toBe(HAND_SIZE);
     // The arrival is still announced — it is carried by opacity now.
     await vi.waitFor(() =>
       seats().forEach(seat => expect(seat.style.opacity).toBe('1'))

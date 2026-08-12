@@ -26,8 +26,8 @@ Read the header comments there before changing any of it. Two things are easy to
 break without noticing:
 
 - **In cached mode the reading is chosen first and its cards are dealt.** Never
-  turn it into "deal a spread, then look up a reading for it" — five of 78 cards
-  essentially never repeats, so that lookup would miss every time.
+  turn it into "deal a spread, then look up a reading for it" — a hand of 78
+  cards essentially never repeats, so that lookup would miss every time.
 - **A truncated reading never enters the pool.** `GeneratedFortune.truncated`
   (set from `finish_reason === 'length'`, whether or not trimming removed
   anything) skips the `cacheReading` call in `settleGeneration`; the visitor who
@@ -132,7 +132,7 @@ inside is reserved, so that layout costs nothing else on the page. Decided in
 
 ## Every control is a real control, and "any key" is not one
 
-The arc is completable by keyboard alone: welcome, draw, five reveals, four
+The arc is completable by keyboard alone: welcome, draw, a reveal per card, four
 pages of reading, reset. Five rules hold it up, and each replaced something that
 looked convenient and was a wall (#18).
 
@@ -339,11 +339,12 @@ Two testing consequences:
 ## The spread is measured, not set by breakpoints
 
 `CardTable.tsx` measures its stage and calls `planSpread`, which builds both
-candidates — five across and 2+3 — and takes the one that actually yields the
-larger card without overflowing, never a single threshold: on a short wide
-stage 2+3 comes back both smaller _and_ taller. Breakpoints cannot express the
-binding constraint either, which is vertical: two rows above the dialog box's
-fixed 256px. Three things follow, and all are easy to undo by accident:
+candidates — one row, and two rows split as evenly as possible — and takes the
+one that actually yields the larger card without overflowing, never a single
+threshold: on a short wide stage the two-row plan comes back both smaller _and_
+taller. Breakpoints cannot express the binding constraint either, which is
+vertical: two rows above the dialog box's fixed 256px. Three things follow, and
+all are easy to undo by accident:
 
 - **The dialog's strip is reserved from the start** in `tarot/page.tsx`
   (`h-[292px]`, broken down in the comment there). Letting it size to content
@@ -361,6 +362,75 @@ Reveals can arrive in one batch, so `UpdateRevealCard` builds the next array
 from a ref rather than from state — otherwise each reveal in the batch reads the
 same stale array and only the last survives (`test/card-table.test.tsx`).
 Decided in #14, which compared five layouts.
+
+## The hand size is `HAND_SIZE`, and everything else derives from it
+
+`HAND_SIZE` in `src/types/index.ts` is the only number. It is consulted twice —
+`drawHand` slices the deck by it, and `CardTable` plans against it _before_ a
+hand exists, since the stage reserves the spread's height from the first frame.
+Everywhere else derives from the hand actually in hand: `CardTable` from
+`tarotHand.length`, `planSpread`/`spreadCandidates` from a `count` parameter,
+the fan's centre from `(count - 1) / 2`, and the prompt in
+`handlers/fortune.ts` from the cards it names. Went 5 → 6 in this shape; the
+layout needed no work, because nothing in the solver is a threshold on the
+count.
+
+Three things a change here has to clear, none of them loud:
+
+- **The deal must finish inside `REVEAL_BEAT_MS`.** `CardTable` lands a card
+  every 260ms and settles 250ms later, and the dialog asks for the first card at
+  2200ms regardless. Six is 1810ms; eight would not fit.
+- **`cache.ts` bounds `handIds`, and must never test it for equality.** The
+  pool outlives any one `HAND_SIZE`: entries written under the old one are still
+  coherent, because the spread is dealt _from_ the entry. Pinning the check to
+  the current size rejects every stored reading at once, and the cache silently
+  goes dark — every capped visitor gets the cold-start reading instead.
+- **`revealedCards` is sized from the hand.** A literal length that disagrees
+  leaves a seat no reveal can reach, so the last card turns, `allRevealed` never
+  fires, and the visitor is stranded at the reveal prompt with every card face
+  up. `test/card-table.test.tsx` runs the reveal at `HAND_SIZE` ± 1 for this.
+
+The prompt names a card count but no named spread, and asks for past / present /
+future / guidance in 4 paragraphs whatever the count. Six cards do not make that
+incoherent, but they are not a canonical six-card spread either — if the reading
+should follow a real one, that is a product decision, not a constant.
+
+## Press once to finish the message, again to advance — by key, mouse and touch
+
+The two-step is the machine's (`machine.ts`: an advance with `typed` false fills
+the page in and moves nothing). What it lacked was a way for a hand to reach it.
+The only click path was the Continue button's own `onClick`, and that button is
+mounted on `page && state.typed` — exactly when there is nothing left to skip.
+So while the typewriter ran there was no click target at all: a mouse could not
+finish a message, and a phone, which has no ambient `keydown` either, could do
+nothing but wait every page out.
+
+The press surface is therefore the box itself (`DialogBox/index.tsx`), and four
+things about it are load-bearing:
+
+- **It listens for `click` and nothing else.** A tap arrives as a synthesised
+  click, so one finger is one press; a `touchstart` listener beside it would
+  skip _and_ advance on a single tap.
+- **Clicks that land on a button are left to the button**, whose `onClick`
+  already answers them — otherwise one press steps the dialog twice. That guard
+  covers the keyboard too, since Enter and Space on the focused button arrive as
+  a click of its own.
+- **It is scoped to the box, not the window.** The cards are siblings, so a tap
+  meant to turn one over never reaches the dialog. A window listener — which is
+  what `Welcome` can afford, having no cards — would swallow it.
+- **A click that ends a text selection is not a press.** Dragging across a
+  paragraph to copy it finishes with a mouseup inside the box, and the page it
+  would advance past cannot be returned to. Only this surface has that exposure:
+  the keyboard path produces no click, and a tap leaves the selection collapsed.
+
+`test/dialog-press.test.tsx` pins all of it, including the tap.
+
+## Run the tests on the Node in `.nvmrc`
+
+`npm test` fails ~36 specs on Node 25 with `window.localStorage.clear is not a
+function`, across `settings`, `sound`, `modal-access` and `typing-text`. Nothing
+is wrong with them: on 24.16.0 (what `.nvmrc` and CI pin) they pass. Reach for
+`nvm use` before believing a red suite you did not cause.
 
 ## The tarot background is 16:9 and a phone is not
 
