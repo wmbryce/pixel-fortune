@@ -1,17 +1,19 @@
 # Pixel Fortune
 
-A pixel-art tarot reader. Draw five cards, turn them over one at a time, and a
+A pixel-art tarot reader. Draw six cards, turn them over one at a time, and a
 fortune teller reads them back to you through an RPG dialog box.
 
 **[Play it → pixel-fortune.vercel.app](https://pixel-fortune.vercel.app)**
 
-![Pixel Fortune: the title card, the deal, five cards flipping face up, and the reading typing out](docs/demo.gif)
+![Pixel Fortune: the title card, the deal, six cards flipping face up, and the reading typing out](docs/demo.gif)
 
 ## How to play
 
 Press any key (or tap) to enter, press again to draw a hand, then turn each of
-the five cards. Once all five are up, the reading pages through the dialog box a
-paragraph at a time. The last page returns you to the title.
+the six cards. Once all six are up, the reading pages through the dialog box a
+paragraph at a time. The dialog box answers a key, a click or a tap anywhere on
+it: the first press finishes the message it is typing, the next moves you on.
+The last page returns you to the title.
 
 The whole arc works from the keyboard alone, and works with
 `prefers-reduced-motion` set. **Settings** in the top corner adds an in-app
@@ -37,7 +39,7 @@ are the ones worth the click.
   walk past it. Past the cap, visitors get a real reading from a self-populating
   pool of previous ones — and in that mode the reading is chosen first and the
   cards are dealt to match it. The reverse (deal a spread, look up a reading for
-  it) misses essentially every time: five of 78 cards never repeats.
+  it) misses essentially every time: six of 78 cards never repeats.
   `src/server/budget.ts`, `src/server/cache.ts`, live numbers at
   [`/api/status`](https://pixel-fortune.vercel.app/api/status).
 - **The reveal is a critically damped 3D flip whose lift is derived, not
@@ -47,8 +49,8 @@ are the ones worth the click.
   landing the sine inverts and the card visibly sinks. No bounce: a tap carries
   no momentum for an overshoot to express. `src/app/_components/Card.tsx`.
 - **The spread measures its stage instead of picking a breakpoint.** Both
-  candidate layouts (five across, 2+3) are built and the one yielding the larger
-  card without overflow wins. The binding constraint is vertical, not
+  candidate layouts (one row, or two split as evenly as possible) are built and
+  the one yielding the larger card without overflow wins. The binding constraint is vertical, not
   horizontal: a card grows taller as it turns, and two rows of them have to
   clear a dialog box of fixed height. A media query cannot express that.
   `src/app/_components/CardTable.tsx`.

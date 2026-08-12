@@ -199,6 +199,30 @@ describe('pressing the dialog', () => {
     expect(body()).toBe(partial);
   });
 
+  /**
+   * jsdom implements no selection, so the two halves of the guard are stubbed:
+   * the click that ends a drag across the paragraph arrives with a range still
+   * held, and every ordinary press arrives with it collapsed.
+   */
+  const withSelection = (isCollapsed: boolean) =>
+    vi.stubGlobal('getSelection', () => ({ isCollapsed }));
+
+  it('ignores the click that ends a text selection', async () => {
+    await toRevealMidType();
+    const partial = body();
+
+    withSelection(false);
+    await clickOn(surface());
+
+    // Selecting the paragraph to copy it must not page past it — there is no
+    // way back to a page the box has left.
+    expect(body()).toBe(partial);
+
+    withSelection(true);
+    await clickOn(surface());
+    expect(body()).toBe(REVEAL_MESSAGE);
+  });
+
   it('still refuses to advance past the reveal with a card face down', async () => {
     await toRevealMidType(false);
 

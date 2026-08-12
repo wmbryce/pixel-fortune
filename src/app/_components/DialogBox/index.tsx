@@ -291,10 +291,17 @@ export default function DialogBox({
    * guard covers the keyboard too: Enter and Space on the focused button arrive
    * as a click of that button's own, which is the path `isAnyKeyPress` and
    * `anyKey` deliberately leave to the browser.
+   *
+   * A click that ends a drag across the text is not a press either. Selecting a
+   * paragraph to copy it finishes with a mouseup inside the box, and the page it
+   * would advance past cannot be returned to — the visitor loses the thing they
+   * were reaching for. Nothing else on this surface has that exposure: the
+   * keyboard path produces no click, and a tap leaves the selection collapsed.
    */
   const pressSurface = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       if ((event.target as HTMLElement).closest('button')) return;
+      if (window.getSelection()?.isCollapsed === false) return;
       press();
     },
     [press]
