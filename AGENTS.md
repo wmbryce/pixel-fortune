@@ -488,11 +488,23 @@ followed. Don't reintroduce a baseline: eslint has no suppression and no
 `--max-warnings` escape hatch, and adding one would make the lint step
 decorative.
 
-## The deployed origin is written down in three places
+## Two origins, and they are not the same origin
 
-`SITE_URL` in `src/app/layout.tsx` (as `metadataBase`, it is what makes the
-OG/Twitter image URLs absolute), `public/robots.txt` and `public/sitemap.xml`. A
-domain change is all three or none. The OG image is a real file,
+`src/app/_libs/origin.ts` owns both, side by side, because they are different
+values and the module's header is where the difference is written down.
+
+- **`SITE_URL`** — the canonical public origin, consumed by `layout.tsx` as
+  `metadataBase` (what makes the OG/Twitter image URLs absolute) and as the
+  Open Graph `url`. It stays production on a preview: previews are SSO-gated,
+  so a preview-relative OG image answers a crawler with a login page.
+- **`selfOrigin()`** — the origin the running deployment reaches its own API
+  on, consumed by `_trpc/Provider.tsx`. Derived per-deployment, relative in the
+  browser, so a preview calls the preview's `/api/trpc`.
+
+Collapsing them into one constant breaks whichever one loses. The canonical one
+is still written down in three places — `origin.ts`, `public/robots.txt` and
+`public/sitemap.xml` — and a domain change is all three or none. The OG image is
+a real file,
 `public/assets/og-image.png` — 1200×630, the welcome art letterboxed on its own
 border colour — because a metadata tag pointing at a 404 renders link previews
 broken rather than plain; the reference this replaced had never had one behind

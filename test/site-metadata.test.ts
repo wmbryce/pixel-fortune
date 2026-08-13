@@ -1,52 +1,63 @@
 /**
- * The deployed origin is written down in three places — `SITE_URL` in
- * `src/app/layout.tsx`, `public/robots.txt` and `public/sitemap.xml` — and a
- * domain change is all three or none. Nothing else can catch a partial one:
+ * The canonical origin is written down in three places — `SITE_URL` in
+ * `src/app/_libs/origin.ts`, `public/robots.txt` and `public/sitemap.xml` — and
+ * a domain change is all three or none. Nothing else can catch a partial one:
  * the app renders identically with a stale origin in the sitemap.
+ *
+ * The fourth spec below pins the *other* origin: `selfOrigin()` is the runtime
+ * one, deliberately not this constant, and the two must not converge.
  *
  * The other half is the OG image. `metadataBase` is what makes the emitted
  * image URL absolute, and a tag pointing at a file that isn't there renders
  * link previews broken rather than plain, so the file and its declared
  * dimensions are pinned against the metadata that advertises them.
  *
- * Read as source rather than imported: `layout.tsx` pulls `next/font/google`,
- * which only resolves inside a Next build.
+ * `layout.tsx` is read as source rather than imported: it pulls
+ * `next/font/google`, which only resolves inside a Next build. `origin.ts`
+ * imports cleanly, which is half of why it is its own module.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { SITE_URL } from '@/app/_libs/origin';
 
 const root = path.resolve(__dirname, '..');
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
 
 const layout = read('src/app/layout.tsx');
+const provider = read('src/app/_trpc/Provider.tsx');
 const robots = read('public/robots.txt');
 const sitemap = read('public/sitemap.xml');
 
-const siteUrl = /const SITE_URL = '([^']+)'/.exec(layout)?.[1];
 const ogImage = /images: \[\s*\{\s*url: '([^']+)'/.exec(layout)?.[1];
 
 describe('the deployed origin', () => {
-  it('is declared in layout.tsx and is an absolute https origin', () => {
-    expect(siteUrl).toBeDefined();
-    const url = new URL(siteUrl!);
+  it('is an absolute https origin', () => {
+    const url = new URL(SITE_URL);
     expect(url.protocol).toBe('https:');
     expect(url.pathname).toBe('/');
   });
 
+  it('is the only origin the metadata knows, and never the runtime one', () => {
+    expect(layout).toContain("import { SITE_URL } from './_libs/origin'");
+    expect(layout).not.toContain('VERCEL_URL');
+    expect(provider).toContain('selfOrigin()');
+    expect(provider).not.toMatch(/import \{[^}]*SITE_URL/);
+  });
+
   it('is what metadataBase is built from, so image URLs are absolute', () => {
     expect(layout).toContain('metadataBase: new URL(SITE_URL)');
-    expect(new URL(ogImage!, siteUrl).href).toBe(`${siteUrl}${ogImage}`);
+    expect(new URL(ogImage!, SITE_URL).href).toBe(`${SITE_URL}${ogImage}`);
   });
 
   it('is the origin robots.txt points its sitemap at', () => {
-    expect(robots).toContain(`Sitemap: ${siteUrl}/sitemap.xml`);
+    expect(robots).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
   });
 
   it('is the origin every sitemap <loc> uses', () => {
     const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
     expect(locs.length).toBeGreaterThan(0);
-    for (const loc of locs) expect(new URL(loc).origin).toBe(siteUrl);
+    for (const loc of locs) expect(new URL(loc).origin).toBe(SITE_URL);
   });
 });
 
