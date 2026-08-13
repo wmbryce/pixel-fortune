@@ -4,20 +4,9 @@ import { httpBatchLink, loggerLink } from '@trpc/client';
 import React, { useState } from 'react';
 
 import { trpc } from './client';
-
-function getBaseUrl() {
-  if (typeof window !== 'undefined')
-    // browser should use relative path
-    return '';
-  if (process.env.VERCEL_URL)
-    // reference for vercel.com
-    return `https://${process.env.VERCEL_URL}`;
-  if (process.env.RENDER_INTERNAL_HOSTNAME)
-    // reference for render.com
-    return `http://${process.env.RENDER_INTERNAL_HOSTNAME}:${process.env.PORT}`;
-  // assume localhost
-  return `http://localhost:${process.env.PORT ?? 3000}`;
-}
+// The runtime self-origin, never the canonical `SITE_URL`: a preview
+// deployment calls its own API. `_libs/origin.ts` owns both and says why.
+import { selfOrigin } from '../_libs/origin';
 
 export default function Provider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -34,7 +23,7 @@ export default function Provider({ children }: { children: React.ReactNode }) {
           enabled: () => true,
         }),
         httpBatchLink({
-          url: `${getBaseUrl()}/api/trpc`,
+          url: `${selfOrigin()}/api/trpc`,
         }),
       ],
     })

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './styles/global.css';
 import Provider from './_trpc/Provider';
 import SettingsBridge from './_components/SettingsBridge';
+import { SITE_URL } from './_libs/origin';
 
 /**
  * Sets the reduce-motion attribute before first paint, so a stored override
@@ -13,8 +14,6 @@ import SettingsBridge from './_components/SettingsBridge';
  */
 const REDUCE_MOTION_BOOT = `try{if(JSON.parse(localStorage.getItem('pf-settings')).reduceMotion)document.documentElement.setAttribute('data-pf-reduce-motion','true')}catch(e){}`;
 
-/** The deployed origin, so link previews resolve `/assets/og-image.png`. */
-const SITE_URL = 'https://pixel-fortune.vercel.app';
 const DESCRIPTION = 'A pixel-art tarot reading. May you be lucky and prosper.';
 
 export const metadata: Metadata = {
