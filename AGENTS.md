@@ -512,6 +512,30 @@ it. `test/site-metadata.test.ts` pins all of it — the app renders identically
 with a stale origin in the sitemap, so nothing else catches a partial change.
 `docs/demo.gif` is the README's demo, recorded off the live site.
 
+## Production is readable, a preview is not
+
+Production answers anyone. Every preview deployment is behind Vercel
+Authentication and answers an agent with a 302 to `vercel.com/sso-api`, so the
+one build worth checking — the unmerged one — is the one that cannot be opened.
+The way through is Vercel's Protection Bypass for Automation, a project-wide
+secret; `docs/preview-access.md` is the whole story, including the dashboard
+steps only the owner can take and the security read on the secret.
+
+Two things worth knowing before reading it:
+
+- **`npm run preview -- fetch|open <url>`** (`scripts/preview.mjs`) is the way to
+  use it, and exists so the secret is never pasted into a command. It is inert
+  until `VERCEL_AUTOMATION_BYPASS_SECRET` is in `.env.local` (gitignored) and
+  fails loudly, not quietly, when it is not. It sends the secret only to this
+  project's own hosts, pinned by full hostname in the script — anyone can
+  deploy under `.vercel.app` — so a rename or custom domain updates those
+  constants rather than widening them. `test/preview-bypass.test.ts` pins the
+  parts a mistake would make silent.
+- **It does not change `origin.ts`.** The bypass reaches clients we control; a
+  link-preview crawler is not one, and the secret must never be published in an
+  OG URL to make it one. `SITE_URL` stays production on a preview for exactly
+  the reason its comment block gives.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
