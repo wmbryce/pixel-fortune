@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "preview": "node scripts/preview.mjs",
     "lint": "npm run format:check && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
