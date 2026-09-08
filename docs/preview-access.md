@@ -80,6 +80,14 @@ The danger is not the token existing; it is the token being reachable.
   scrollback of whatever ran the command. Prefer the header wherever the client
   can set one. `scripts/preview.mjs` exists so the value never has to be pasted
   into a shell line by hand.
+- **It only ever goes to this project's own hosts.** `scripts/preview.mjs`
+  refuses any URL that is not https to `pixel-fortune.vercel.app` or to a
+  preview of the shape `pixel-fortune-<hash>-dpoch.vercel.app`, checked against
+  the full hostname. Anyone can deploy under `.vercel.app`, so a deployment URL
+  pasted from a PR comment or a CI log is otherwise a way to exfiltrate the
+  secret. The cost is deliberate: rename the project or move it to a custom
+  domain and the helper refuses until the hosts in the script are updated —
+  loudly, never by sending the secret anyway.
 - **Anyone holding it can read every unlisted preview in the project.** That is
   the exact thing Deployment Protection was bought to prevent, so the token is
   worth about as much as the protection is.
@@ -146,13 +154,19 @@ block stays true; only the agent-access half of the problem is solved here.
 ## Verifying, once the secret exists
 
 ```bash
-npm run preview -- fetch https://pixel-fortune-<hash>-dpoch.vercel.app/
+npm run preview -- fetch https://pixel-fortune-<hash>-dpoch.vercel.app/welcome
 ```
 
-- `200` and HTML — working.
+- `200` and HTML — working. `/api/status` is the other good probe: `200` and
+  JSON.
 - `302` to `vercel.com/sso-api` — the secret is absent, stale or mistyped. Check
   it matches an active secret in the settings panel; if it was regenerated,
-  redeploy and re-copy.
+  redeploy and re-copy. The helper exits 1 on this so it cannot be read as
+  success.
+
+Don't probe the root: `/` redirects to `/welcome`, and the helper does not
+follow redirects, so a working bypass on `/` prints `307` with
+`location: /welcome` and no body — correct, but not the answer listed above.
 
 ## Not done here, and why
 

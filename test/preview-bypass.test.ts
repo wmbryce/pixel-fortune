@@ -1,5 +1,6 @@
 // The preview helper's three invariants: both bypass parameters reach the
-// browser, the secret never leaves Vercel, and a missing secret is loud.
+// browser, the secret never leaves this project's own hosts, and a missing
+// secret is loud.
 // Background in docs/preview-access.md.
 import { describe, expect, it } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -40,21 +41,43 @@ describe('primePreviewUrl', () => {
 });
 
 describe('requireVercelUrl', () => {
-  it('accepts an https Vercel deployment', () => {
-    expect(requireVercelUrl(DEPLOYMENT).hostname).toBe(
-      'pixel-fortune-abc123-dpoch.vercel.app'
-    );
+  it.each([
+    ['production', 'https://pixel-fortune.vercel.app/welcome'],
+    ['a preview', `${DEPLOYMENT}/tarot`],
+    [
+      'a branch preview',
+      'https://pixel-fortune-git-fm-pf-vercel-bypass-dpoch.vercel.app/',
+    ],
+  ])("accepts this project's own host: %s", (_label, url) => {
+    expect(requireVercelUrl(url).hostname).toBe(new URL(url).hostname);
   });
 
   // The secret opens every protected deployment in the project, so a typo'd or
-  // hostile host must never be handed it.
+  // hostile host must never be handed it. Anyone can deploy under
+  // `.vercel.app`, so another project's deployment is as foreign as any other
+  // host.
   it.each([
     ['a host that is not Vercel', 'https://example.com/'],
     ['a lookalike host', 'https://vercel.app.example.com/'],
+    [
+      "another project's deployment",
+      'https://someone-else-abc123-other.vercel.app/',
+    ],
+    ['a lookalike of production', 'https://pixel-fortune.vercel.app.evil.com/'],
+    ['a lookalike of a preview', 'https://pixel-fortune-evil.attacker.com/'],
+    [
+      'a preview under another team',
+      'https://pixel-fortune-abc123-other.vercel.app/',
+    ],
     ['plaintext http', 'http://pixel-fortune-abc123-dpoch.vercel.app/'],
-    ['not a URL at all', 'pixel-fortune.vercel.app'],
   ])('refuses %s', (_label, url) => {
-    expect(() => requireVercelUrl(url)).toThrow();
+    expect(() => requireVercelUrl(url)).toThrow(/every protected deployment/);
+  });
+
+  it('refuses what is not a URL at all', () => {
+    expect(() => requireVercelUrl('pixel-fortune.vercel.app')).toThrow(
+      /Not a URL/
+    );
   });
 });
 
@@ -78,5 +101,11 @@ describe('readSecret', () => {
     expect(() => readSecret({}, tempEnvFile('OPENAI_API_KEY=sk-x\n'))).toThrow(
       /VERCEL_AUTOMATION_BYPASS_SECRET/
     );
+  });
+
+  it('reports an unreadable env file as its own error, not a missing secret', () => {
+    const directory = path.dirname(tempEnvFile(''));
+
+    expect(() => readSecret({}, directory)).toThrow(/EISDIR/);
   });
 });

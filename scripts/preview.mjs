@@ -23,10 +23,18 @@ const COOKIE_PARAM = 'x-vercel-set-bypass-cookie';
 
 /**
  * The secret is a key to every protected deployment in the project, so it is
- * only ever sent to a host Vercel serves. A typo'd or attacker-supplied host
- * would otherwise be handed it in full.
+ * only ever sent to this project's own hosts: production, and previews of the
+ * shape `pixel-fortune-<hash>-dpoch.vercel.app`. Anyone can deploy under
+ * `.vercel.app`, so a bare suffix test would hand a URL pasted from a PR
+ * comment or a CI log the secret in full.
+ *
+ * Renaming the project or moving it to a custom domain means updating these,
+ * and until then the helper refuses — loud and safe. Do not widen them back to
+ * a suffix to make a rename go quietly.
  */
-const ALLOWED_HOST = '.vercel.app';
+const PRODUCTION_HOST = 'pixel-fortune.vercel.app';
+const PREVIEW_HOST = /^pixel-fortune-[a-z0-9-]+-dpoch\.vercel\.app$/;
+const ACCEPTED_HOSTS = `${PRODUCTION_HOST} or pixel-fortune-<hash>-dpoch.vercel.app`;
 
 /**
  * The URL to navigate a browser to first. Both parameters are load-bearing:
@@ -41,7 +49,7 @@ export function primePreviewUrl(rawUrl, secret) {
   return url.toString();
 }
 
-/** Rejects anything that is not an https Vercel deployment. */
+/** Rejects anything that is not an https deployment of this project. */
 export function requireVercelUrl(rawUrl) {
   let url;
   try {
@@ -49,13 +57,14 @@ export function requireVercelUrl(rawUrl) {
   } catch {
     throw new Error(`Not a URL: ${rawUrl}`);
   }
-  const isVercel =
-    url.protocol === 'https:' && url.hostname.endsWith(ALLOWED_HOST);
-  if (!isVercel) {
+  const isOwnHost =
+    url.hostname === PRODUCTION_HOST || PREVIEW_HOST.test(url.hostname);
+  if (url.protocol !== 'https:' || !isOwnHost) {
     throw new Error(
       `Refusing to send the bypass secret to ${url.origin} — it is a key to ` +
-        `every protected deployment in the project, so it only goes to an ` +
-        `https host under ${ALLOWED_HOST}.`
+        `every protected deployment in the project, so it only goes over ` +
+        `https to ${ACCEPTED_HOSTS}. If the project was renamed, update the ` +
+        `hosts in scripts/preview.mjs.`
     );
   }
   return url;
@@ -86,8 +95,9 @@ function readEnvFile(path) {
   let contents;
   try {
     contents = readFileSync(path, 'utf8');
-  } catch {
-    return {};
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
   }
   const parsed = {};
   for (const line of contents.split('\n')) {
@@ -151,11 +161,14 @@ async function main(argv) {
     process.exitCode = 1;
     return;
   }
+  if (command !== 'fetch' && command !== 'open') {
+    console.error(`Unknown command: ${command}\n\n${USAGE}`);
+    process.exitCode = 1;
+    return;
+  }
   const secret = readSecret();
   if (command === 'fetch') return runFetch(rawUrl, secret);
-  if (command === 'open') return runOpen(rawUrl, secret);
-  console.error(`Unknown command: ${command}\n\n${USAGE}`);
-  process.exitCode = 1;
+  return runOpen(rawUrl, secret);
 }
 
 const invokedDirectly =
