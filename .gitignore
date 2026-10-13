@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated-art source material, kept outside the repo (see README "The art")
+asset-work/

@@ -25,8 +25,10 @@ reduced motion; **Credits** next to it lists the attributions.
 
 Every card, background and dialog frame is DALL·E-generated pixel art — a full
 78-card deck plus the title, table and dialog plates. Nothing here is stock or
-licensed third-party art; the raw render passes, rejects included, are in
-`asset-work/`.
+licensed third-party art. The raw render passes, rejects included, are not in
+the repo: they live locally at `~/Assets/pixel-fortune/asset-work/`, with a
+sha256 manifest beside it. Commits before their removal still carry them in
+history.
 
 ## Decisions worth looking at
 
