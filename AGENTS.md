@@ -432,6 +432,9 @@ function`, across `settings`, `sound`, `modal-access` and `typing-text`. Nothing
 is wrong with them: on 24.16.0 (what `.nvmrc` and CI pin) they pass. Reach for
 `nvm use` before believing a red suite you did not cause.
 
+Vercel does not read `.nvmrc`. It takes `engines.node` in `package.json`
+(`24.x`), else the project setting, so a bump there is both files or none.
+
 ## The tarot background is 16:9 and a phone is not
 
 `src/app/tarot/background.css`; its header comment carries the reasoning and the
